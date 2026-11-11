@@ -727,4 +727,173 @@ function createCartesianLine(pid1,pid2){ if(!pid1||!pid2||pid1===pid2) return; c
   canvas.addEventListener('pointerdown',e=>{if(e.cancelable)e.preventDefault();},{capture:true,passive:false});
 })();
 </script>
+
+<style>
+#solidPolyGroup{display:none;grid-column:1/-1;gap:7px;padding:10px 12px;border-radius:10px;background:#112b46;border:1px solid #4488b0}
+#solidPolyGroup.visible{display:flex;flex-direction:column}
+#solidColorSelect{width:100%;height:43px;border-radius:8px;background:#192c42;padding:4px;cursor:pointer}
+#context .premium-solid-color{display:flex;gap:8px;align-items:center;font-size:12px;color:#d9f5ff}
+#context .premium-solid-color input{width:48px;height:33px;padding:3px;background:#15314d;border-radius:8px;border:1px solid #628aa8;cursor:pointer}
+</style>
+<script>
+(function(){
+'use strict';
+const $el=id=>document.getElementById(id);
+const selector=$el('solidKind');
+if(!selector)return;
+const polyKinds=[
+ ['tetrahedron','Tetraedro regular · 4 caras'],
+ ['hexahedron','Hexaedro regular (cubo) · 6 caras'],
+ ['octahedron','Octaedro regular · 8 caras'],
+ ['dodecahedron','Dodecaedro regular · 12 caras'],
+ ['icosahedron','Icosaedro regular · 20 caras']
+];
+const optgroup=document.createElement('optgroup');optgroup.label='Los cinco sólidos platónicos';
+for(const [v,t] of polyKinds){const op=document.createElement('option');op.value=v;op.textContent=t;optgroup.append(op)}
+selector.append(optgroup);
+const options=document.querySelector('#solidsDialog .solid-options');
+const colorWrap=document.createElement('label');colorWrap.textContent='Color del sólido';
+const colorPick=document.createElement('input');colorPick.type='color';colorPick.id='solidColorSelect';colorPick.value='#21b6ea';
+colorWrap.append(colorPick);options.append(colorWrap);
+const hint=document.createElement('div');hint.id='solidPolyGroup';hint.textContent='Los cinco poliedros regulares se construyen con caras y aristas iguales. Puedes girarlos en los tres ejes y cambiar su color.';options.append(hint);
+const sides= $el('solidSides').closest('label');
+const ht= $el('solidHeight').closest('label');
+const updateKind=()=>{const isPoly=polyKinds.some(([v])=>v===selector.value);hint.classList.toggle('visible',isPoly);sides.style.display=isPoly?'none':'';ht.style.display=isPoly?'none':''};
+selector.addEventListener('change',updateKind);updateKind();
+let defaultSolidColor='#21b6ea';
+colorPick.addEventListener('input',()=>defaultSolidColor=colorPick.value);
+// Read the selected palette color only when inserting and never change the rest of the palette.
+const originalCreateSolid=createSolid;
+createSolid=function(kind,n,h,rot){
+ originalCreateSolid(kind,n,h,rot);
+ const o=scene[scene.length-1];
+ if(o&&o.type==='solid'){
+   o.solidColor=defaultSolidColor;
+   o.yaw3D=o.yaw3D??rot;
+   o.pitch3D=o.pitch3D??18;
+   o.roll3D=o.roll3D??0;
+   render();
+ }
+};
+const originalContext=context;
+context=function(){
+ originalContext();
+ if(selectionIds().length!==1 || selected<0 || scene[selected]?.type!=='solid')return;
+ const o=scene[selected], panel=$el('context');
+ const lab=document.createElement('label');lab.className='premium-solid-color';lab.textContent='Color 3D';
+ const control=document.createElement('input');control.type='color';control.value=/^#[a-f\d]{6}$/i.test(o.solidColor||'')?o.solidColor:'#21b6ea';
+ let started=false;
+ control.addEventListener('input',()=>{if(!started){checkpoint();started=true;}if(scene[selected]?.type==='solid')scene[selected].solidColor=control.value;render();});
+ control.addEventListener('change',()=>{started=false;});
+ lab.append(control);panel.append(lab);
+};
+const nameOf={tetrahedron:'Tetraedro',hexahedron:'Hexaedro',octahedron:'Octaedro',dodecahedron:'Dodecaedro',icosahedron:'Icosaedro'};
+const oldContext=context;
+context=function(){oldContext();if(scene[selected]?.type==='solid'){const t=$el('context').querySelector('.context-label');if(t&&nameOf[scene[selected].kind])t.textContent=nameOf[scene[selected].kind]+' regular · seleccionado';}};
+
+// Geometry: exact regular polyhedra obtained from normalized Platonic vertices.
+const norm=v=>{const m=Math.hypot(...v)||1;return v.map(x=>x/m)};
+const sub=(a,b)=>a.map((x,i)=>x-b[i]);
+const cross=(a,b)=>[a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]];
+const dot=(a,b)=>a.reduce((s,x,i)=>s+x*b[i],0);
+const faceOrder=(verts,faces)=>faces.map(f=>{
+ const a=verts[f[0]],b=verts[f[1]],c=verts[f[2]],normal=cross(sub(b,a),sub(c,a));
+ const center=f.reduce((s,i)=>s.map((x,j)=>x+verts[i][j]/f.length),[0,0,0]);
+ return dot(normal,center)<0?[...f].reverse():f;
+});
+function triangulatedFaces(v){
+ let min=1e20;
+ for(let i=0;i<v.length;i++)for(let j=i+1;j<v.length;j++){const d=Math.hypot(...sub(v[i],v[j]));if(d>1e-7&&d<min)min=d;}
+ const edge=(i,j)=>Math.abs(Math.hypot(...sub(v[i],v[j]))-min)<1e-5;
+ const faces=[];
+ for(let i=0;i<v.length;i++)for(let j=i+1;j<v.length;j++)if(edge(i,j))for(let k=j+1;k<v.length;k++)if(edge(i,k)&&edge(j,k))faces.push([i,j,k]);
+ return faceOrder(v,faces);
+}
+function icoMesh(){
+ const f=(1+Math.sqrt(5))/2;
+ const v=[];
+ for(const a of [-1,1])for(const b of [-1,1]){v.push([0,a,b*f]);v.push([a,b*f,0]);v.push([b*f,0,a]);}
+ return {v:v.map(norm),faces:triangulatedFaces(v)};
+}
+const models={
+ tetrahedron:()=>{const v=[[1,1,1],[-1,-1,1],[-1,1,-1],[1,-1,-1]].map(norm);return {v,faces:triangulatedFaces(v)};},
+ hexahedron:()=>{const v=[];for(const x of [-1,1])for(const y of [-1,1])for(const z of [-1,1])v.push(norm([x,y,z]));
+ const faces=[];for(const axis of [0,1,2])for(const sign of [-1,1])faces.push(v.map((p,i)=>({p,i})).filter(t=>Math.sign(t.p[axis])===sign).map(t=>t.i));
+ // order four corners around each face to avoid crossing edges.
+ return {v,faces:faceOrder(v,faces.map(ids=>{const c=ids.map(i=>v[i]);const ctr=[0,1,2].map(k=>c.reduce((a,b)=>a+b[k],0)/4);const n=norm(ctr);const seed=norm(sub(c[0],ctr));const perpendicular=cross(n,seed);return [...ids].sort((a,b)=>{const pa=sub(v[a],ctr),pb=sub(v[b],ctr);return Math.atan2(dot(pa,perpendicular),dot(pa,seed))-Math.atan2(dot(pb,perpendicular),dot(pb,seed));});}))};},
+ octahedron:()=>{const v=[[1,0,0],[-1,0,0],[0,1,0],[0,-1,0],[0,0,1],[0,0,-1]];return{v,faces:triangulatedFaces(v)};},
+ icosahedron:icoMesh,
+ dodecahedron:()=>{
+  const ico=icoMesh();const v=ico.faces.map(f=>norm(f.reduce((a,i)=>a.map((x,k)=>x+ico.v[i][k]/3),[0,0,0])));
+  const faces=ico.v.map((p,i)=>{
+   const ids=ico.faces.map((f,j)=>f.includes(i)?j:-1).filter(x=>x>=0);
+   const seed=norm(sub(v[ids[0]],p.map(x=>x*.795)));
+   const n=norm(p), tangent=norm(sub(seed,n.map(x=>x*dot(seed,n)))), perp=cross(n,tangent);
+   return ids.sort((a,b)=>{const pa=v[a],pb=v[b];return Math.atan2(dot(pa,perp),dot(pa,tangent))-Math.atan2(dot(pb,perp),dot(pb,tangent));});
+  });
+  return {v,faces:faceOrder(v,faces)};
+ }
+};
+const meshes=Object.fromEntries(Object.entries(models).map(([k,f])=>[k,f()]));
+// Color math: independent RGB channels and physically-inspired diffuse illumination.
+const rgb=hex=>{let h=(hex||'#21b6ea').replace('#','');if(h.length===3)h=h.split('').map(c=>c+c).join('');if(!/^[0-9a-f]{6}$/i.test(h))h='21b6ea';return [0,2,4].map(i=>parseInt(h.slice(i,i+2),16));};
+const shade=(col,intensity)=>{const a=rgb(col), ambient=.38, brightness=ambient+.62*intensity;return `rgb(${a.map(x=>Math.round(Math.min(255,x*brightness+20*intensity))).join(',')})`;};
+const oldDrawSolid=drawSolid;
+drawSolid=function(g,o,mode=theme){
+ if(!meshes[o.kind]){
+   // Existing prisms, pyramids, spheres, cones and cylinders retain their geometry.
+   if(!o.solidColor){oldDrawSolid(g,o,mode);return;}
+   // Tint existing material without changing its geometry or lighting calculations.
+   g.save();
+   const canvas=document.createElement('canvas');canvas.width=Math.max(1,Math.ceil(o.w));canvas.height=Math.max(1,Math.ceil(o.h));
+   const cg=canvas.getContext('2d');cg.translate(-o.x,-o.y);oldDrawSolid(cg,o,mode);
+   g.drawImage(canvas,o.x,o.y,o.w,o.h);
+   g.save();g.globalCompositeOperation='source-atop';g.fillStyle=o.solidColor;g.globalAlpha=.31;g.fillRect(o.x,o.y,o.w,o.h);g.restore();g.restore();return;
+ }
+ const mesh=meshes[o.kind];const yaw=(o.yaw3D??o.spin3D??o.rotation??25)*Math.PI/180;
+ const pitch=(o.pitch3D??18)*Math.PI/180,roll=(o.roll3D??0)*Math.PI/180;
+ const rx=(v)=>{
+  const cy=Math.cos(yaw),sy=Math.sin(yaw),cx=Math.cos(pitch),sx=Math.sin(pitch),cz=Math.cos(roll),sz=Math.sin(roll);
+  let [x,y,z]=v; [x,z]=[cy*x+sy*z,-sy*x+cy*z];[y,z]=[cx*y-sx*z,sx*y+cx*z];return[cz*x-sz*y,sz*x+cz*y,z];
+ };
+ const verts=mesh.v.map(rx),R=Math.min(o.w,o.h)*.39;
+ const project=p=>{const k=3.2/(3.2-p[2]*.25);return [o.x+o.w/2+p[0]*R*k,o.y+o.h/2-p[1]*R*k];};
+ const fill=o.solidColor||'#21b6ea';
+ const light=norm([-0.35,.8,1]);
+ const faces=mesh.faces.map(f=>{
+  const a=verts[f[0]],b=verts[f[1]],c=verts[f[2]];
+  const n=norm(cross(sub(b,a),sub(c,a)));
+  const z=f.reduce((v,i)=>v+verts[i][2],0)/f.length;
+  return {f,n,z};
+ }).filter(t=>t.n[2]>-.01).sort((a,b)=>a.z-b.z);
+ g.save();g.lineJoin='round';g.lineCap='round';
+ for(const {f,n} of faces){const brightness=Math.max(0,dot(n,light));
+   const poly=f.map(i=>project(verts[i]));
+   g.beginPath();g.moveTo(...poly[0]);for(let i=1;i<poly.length;i++)g.lineTo(...poly[i]);g.closePath();
+   g.fillStyle=shade(fill,brightness);g.fill();
+   g.lineWidth=Math.max(1.4,Math.min(2.4,Math.min(o.w,o.h)*.007));
+   g.strokeStyle=mode==='dark'?'#d1f2ff':'#17405d';g.stroke();
+   if(brightness>.42){g.save();g.globalAlpha=.07+brightness*.08;g.fillStyle='#ffffff';g.fill();g.restore();}
+ }
+ g.restore();
+};
+
+// Convert selected polygon or the latest eligible drawing; otherwise insert a ready prism.
+$el('extrudePolygon').onclick=()=>{
+ const ids=selectionIds();
+ let idx=ids.length===1?ids[0]:-1;
+ const usable=o=>o && (o.type==='polygon'||o.type==='rect'||(o.type==='pen'&&o.closed));
+ if(!usable(scene[idx])){idx=-1;for(let i=scene.length-1;i>=0;i--)if(usable(scene[i])){idx=i;break;}}
+ if(idx<0){defaultSolidColor=colorPick.value;createSolid('prism',4,70,25);say('Prisma insertado. Para extruir un polígono específico, dibújalo y selecciónalo antes de pulsar «Polígono → prisma».');return;}
+ const o=scene[idx],b=bounds(o),n=o.type==='rect'?4:Math.max(3,Math.min(24,o.nodes?.length||4));
+ checkpoint();
+ scene[idx]={type:'solid',kind:'prism',sides:n,heightFactor:70,rotation:25,yaw3D:25,pitch3D:18,roll3D:0,
+ solidColor:defaultSolidColor,x:b.x,y:Math.max(0,b.y-45),w:Math.max(150,b.w),h:Math.max(180,b.h+90),baseW:Math.max(150,b.w)};
+ tool='select';document.querySelectorAll('[data-tool]').forEach(x=>x.classList.toggle('active',x.dataset.tool==='select'));
+ selectIds([idx]);cursorForView();context();render();say('Polígono convertido en prisma 3D ('+n+' lados). Selecciona el sólido para cambiar su color o rotarlo.');
+};
+// Adjust color when returning to the library so the choice follows the last selected solid.
+$el('solidLibrary').addEventListener('click',()=>{if(scene[selected]?.type==='solid'&&scene[selected].solidColor)colorPick.value=scene[selected].solidColor;defaultSolidColor=colorPick.value;updateKind();});
+})();
+</script>
 </body></html>
