@@ -322,4 +322,688 @@ $('extrudePolygon').onclick=()=>{const ids=selectionIds(),o=ids.length===1?scene
  const b=bounds(o),n=o.nodes?.length||4;if(n<3){say('El polígono necesita al menos tres vértices.');return}checkpoint();scene[ids[0]]={type:'solid',kind:'prism',sides:Math.min(n,24),heightFactor:70,rotation:25,x:b.x,y:b.y-60,w:Math.max(120,b.w),h:Math.max(160,b.h+120),baseW:b.w};context();render();say('Prisma construido a partir del polígono seleccionado. Se conserva en esta misma página.');};
 
 $('polygonOptions').style.display='none';palette();updateUndo();refreshPages();
-</script></body></html>
+</script>
+<style>
+#cartesianPlane{background:linear-gradient(135deg,#265e9f,#183d7c);border:1px solid #6fa6ff;color:#eef6ff;font-weight:700}
+#cartesianPlane:hover{filter:brightness(1.12)}
+#context .ext-note{flex-basis:100%;font-size:10px;line-height:1.35;color:#9ed9ef;margin-top:4px}
+#context label.ext-slider{display:flex;flex-direction:column;gap:4px;font-size:11px;color:#d7ecf7;min-width:150px}
+#context label.ext-slider input{accent-color:#66e4ff}
+</style>
+<script>
+(function(){
+  'use strict';
+  const addStyleNotes = ()=>{
+    try{
+      const help = document.querySelector('#help');
+      if(help && !document.getElementById('premiumAddonNotes')){
+        const box = document.createElement('div');
+        box.id = 'premiumAddonNotes';
+        box.innerHTML = '<p><b>Plano cartesiano:</b> inserta un plano desde la sección «Insertar». Usa «Editar puntos» para cargar pares ordenados y doble clic dentro del plano para agregar un punto rápidamente.</p><p><b>Rotación 3D:</b> los sólidos 3D ahora incluyen un control específico de rotación sobre su eje de simetría.</p>';
+        help.append(box);
+      }
+    }catch(e){}
+  };
+
+  // Extend color palettes keeping the existing palette renderer.
+  try{
+    palettes.dark.splice(0, palettes.dark.length, '#ffffff','#ff3d6b','#56cfff','#ff9f30','#26ffe1','#f4ff00','#65ff32','#d391ff','#00ff9f','#ff5cff','#9eff00','#00e5ff','#ffd54a','#ff7849','#b7ff00','#000000');
+    palettes.light.splice(0, palettes.light.length, '#111827','#df002b','#0756d7','#e66400','#008b88','#eab900','#078327','#7c22c9','#00a86b','#d81b60','#34a853','#00acc1','#ff6f00','#5e35b1','#d32f2f','#ffffff');
+    names.dark.splice(0, names.dark.length, 'Blanco','Rojo neón','Celeste neón','Naranja neón','Turquesa neón','Amarillo neón','Verde neón','Lila neón','Menta neón','Fucsia neón','Lima neón','Aqua neón','Ámbar neón','Coral neón','Chartreuse','Negro');
+    names.light.splice(0, names.light.length, 'Negro','Rojo vivo','Azul vivo','Naranja vivo','Turquesa vivo','Amarillo vivo','Verde vivo','Lila vivo','Verde esmeralda','Fucsia vivo','Verde brillante','Cian vivo','Ámbar','Violeta vivo','Rojo ladrillo','Blanco');
+  }catch(e){}
+
+  // Insert extra button for Cartesian plane.
+  try{
+    const insertGrid = document.querySelector('.insert-grid');
+    if(insertGrid && !document.getElementById('cartesianPlane')){
+      const btn = document.createElement('button');
+      btn.id = 'cartesianPlane';
+      btn.textContent = '⊞ Plano cartesiano';
+      insertGrid.insertBefore(btn, document.getElementById('solidLibrary'));
+    }
+  }catch(e){}
+
+  function cartesianPlotRect(o){
+    const m = Math.max(26, Math.min(42, Math.round(Math.min(o.w,o.h)*0.08)));
+    return {x:o.x+m,y:o.y+m,w:Math.max(40,o.w-2*m),h:Math.max(40,o.h-2*m),m};
+  }
+  function cartesianToCanvas(o,pt){
+    const r = cartesianPlotRect(o);
+    const xmin = o.xmin ?? -10, xmax = o.xmax ?? 10, ymin = o.ymin ?? -10, ymax = o.ymax ?? 10;
+    const px = r.x + (pt.x-xmin)/(xmax-xmin)*r.w;
+    const py = r.y + r.h - (pt.y-ymin)/(ymax-ymin)*r.h;
+    return {x:px,y:py};
+  }
+  function canvasToCartesian(o,p){
+    const r = cartesianPlotRect(o);
+    const xmin = o.xmin ?? -10, xmax = o.xmax ?? 10, ymin = o.ymin ?? -10, ymax = o.ymax ?? 10;
+    const x = xmin + ((p.x-r.x)/r.w)*(xmax-xmin);
+    const y = ymin + ((r.h-(p.y-r.y))/r.h)*(ymax-ymin);
+    return {x,y};
+  }
+  function parseCartesianPoints(text){
+    const pts=[];
+    const rows = String(text||'').split(/\n+/).map(s=>s.trim()).filter(Boolean);
+    rows.forEach((row,idx)=>{
+      const parts = row.split(/[;,\t ]+/).filter(Boolean);
+      let label = '', x = null, y = null;
+      if(parts.length>=3){ label = parts[0]; x = Number(parts[1]); y = Number(parts[2]); }
+      else if(parts.length===2){ x = Number(parts[0]); y = Number(parts[1]); label = String.fromCharCode(65 + (idx % 26)); }
+      if(Number.isFinite(x) && Number.isFinite(y)) pts.push({label:label || String.fromCharCode(65 + (idx % 26)), x, y});
+    });
+    return pts;
+  }
+  function pointsToText(pts){
+    return (pts||[]).map((p,i)=>`${p.label||String.fromCharCode(65+(i%26))} ${p.x} ${p.y}`).join('\n');
+  }
+  function drawCartesian(g,o,mode=theme){
+    const bg = mode==='dark' ? '#0c1726' : '#ffffff';
+    const gridColor = mode==='dark' ? '#4c638866' : '#8fb4d066';
+    const axisColor = mode==='dark' ? '#a8e8ff' : '#0e3d6c';
+    const borderColor = mode==='dark' ? '#6dcfff' : '#2c6fb1';
+    const pointColor = mode==='dark' ? '#ff6b8f' : '#d92353';
+    const labelColor = mode==='dark' ? '#eaf9ff' : '#17324d';
+    const r = cartesianPlotRect(o);
+    const xmin = o.xmin ?? -10, xmax = o.xmax ?? 10, ymin = o.ymin ?? -10, ymax = o.ymax ?? 10;
+    g.save();
+    g.fillStyle = bg;
+    g.strokeStyle = borderColor;
+    g.lineWidth = 2;
+    g.beginPath();
+    g.roundRect ? g.roundRect(o.x,o.y,o.w,o.h,14) : g.rect(o.x,o.y,o.w,o.h);
+    g.fill();
+    g.stroke();
+    // plot area
+    g.save();
+    g.beginPath();
+    g.rect(r.x,r.y,r.w,r.h);
+    g.clip();
+    g.fillStyle = mode==='dark' ? '#09111d' : '#f9fcff';
+    g.fillRect(r.x,r.y,r.w,r.h);
+    g.strokeStyle = gridColor;
+    g.lineWidth = 1;
+    const xStep = 1, yStep = 1;
+    for(let xv = Math.ceil(xmin); xv <= Math.floor(xmax); xv += xStep){
+      const p = cartesianToCanvas(o,{x:xv,y:0});
+      g.beginPath(); g.moveTo(p.x,r.y); g.lineTo(p.x,r.y+r.h); g.stroke();
+    }
+    for(let yv = Math.ceil(ymin); yv <= Math.floor(ymax); yv += yStep){
+      const p = cartesianToCanvas(o,{x:0,y:yv});
+      g.beginPath(); g.moveTo(r.x,p.y); g.lineTo(r.x+r.w,p.y); g.stroke();
+    }
+    // axes
+    const ox = Math.min(r.x+r.w, Math.max(r.x, cartesianToCanvas(o,{x:0,y:0}).x));
+    const oy = Math.min(r.y+r.h, Math.max(r.y, cartesianToCanvas(o,{x:0,y:0}).y));
+    g.strokeStyle = axisColor;
+    g.fillStyle = axisColor;
+    g.lineWidth = 2.4;
+    g.beginPath(); g.moveTo(r.x,oy); g.lineTo(r.x+r.w,oy); g.stroke();
+    g.beginPath(); g.moveTo(ox,r.y+r.h); g.lineTo(ox,r.y); g.stroke();
+    // arrow tips
+    const tip = (x,y,dx,dy)=>{ const L=10,W=4; g.beginPath(); g.moveTo(x,y); g.lineTo(x-dx*L+dy*W,y-dy*L-dx*W); g.lineTo(x-dx*L-dy*W,y-dy*L+dx*W); g.closePath(); g.fill(); };
+    tip(r.x+r.w,oy,1,0); tip(ox,r.y,0,-1);
+    // ticks and labels
+    g.font = `${Math.max(11, Math.min(13, r.m*0.32))}px system-ui`;
+    g.textAlign = 'center'; g.textBaseline = 'top';
+    for(let xv = Math.ceil(xmin); xv <= Math.floor(xmax); xv++){
+      if(xv===0) continue; const p = cartesianToCanvas(o,{x:xv,y:0});
+      g.beginPath(); g.moveTo(p.x,oy-5); g.lineTo(p.x,oy+5); g.stroke();
+      if(p.x>r.x+10 && p.x<r.x+r.w-10){ g.fillText(String(xv), p.x, oy+7); }
+    }
+    g.textAlign = 'right'; g.textBaseline = 'middle';
+    for(let yv = Math.ceil(ymin); yv <= Math.floor(ymax); yv++){
+      if(yv===0) continue; const p = cartesianToCanvas(o,{x:0,y:yv});
+      g.beginPath(); g.moveTo(ox-5,p.y); g.lineTo(ox+5,p.y); g.stroke();
+      if(p.y>r.y+10 && p.y<r.y+r.h-10){ g.fillText(String(yv), ox-8, p.y); }
+    }
+    g.textAlign='left'; g.textBaseline='bottom'; g.fillText('x', r.x+r.w-8, oy-8);
+    g.fillText('y', ox+8, r.y+18);
+    // points
+    const pts = o.points || [];
+    g.font = `${Math.max(11, Math.min(14, r.m*0.35))}px system-ui`;
+    pts.forEach((pt,idx)=>{
+      const c = cartesianToCanvas(o,pt);
+      g.fillStyle = pointColor;
+      g.beginPath(); g.arc(c.x,c.y,4.7,0,Math.PI*2); g.fill();
+      g.strokeStyle = mode==='dark' ? '#ffffff' : '#fff'; g.lineWidth=1.6; g.stroke();
+      g.fillStyle = labelColor;
+      const tag = `${pt.label || String.fromCharCode(65+(idx%26))}(${pt.x},${pt.y})`;
+      g.fillText(tag, c.x+8, c.y-8);
+    });
+    g.restore();
+    g.fillStyle = labelColor;
+    g.font = '600 13px system-ui';
+    g.fillText('Plano cartesiano', o.x+16, o.y+22);
+    g.restore();
+  }
+
+  // Preserve original rendering and override only the pieces we enhance.
+  const _drawStroke = drawStroke;
+  drawStroke = function(g,s,mode=theme){
+    if(s.type==='cartesian'){ drawCartesian(g,s,mode); return; }
+    if(s.type==='arrow'){
+      g.save();
+      g.lineCap='round'; g.lineJoin='round';
+      const a=s.points?.[0], b=s.points?.[s.points.length-1];
+      if(!a||!b){ g.restore(); return; }
+      const dx=b.x-a.x, dy=b.y-a.y, len=Math.hypot(dx,dy) || 1;
+      const ux=dx/len, uy=dy/len, nx=-uy, ny=ux;
+      const shaft = Math.max(2, s.width*0.9);
+      const headLen = Math.max(18, Math.min(44, len*0.25, s.width*7));
+      const headWidth = Math.max(10, headLen*0.45);
+      const baseX = b.x - ux*headLen, baseY = b.y - uy*headLen;
+      g.strokeStyle = palettes[mode][s.color];
+      g.fillStyle = palettes[mode][s.color];
+      g.lineWidth = shaft;
+      g.beginPath(); g.moveTo(a.x,a.y); g.lineTo(baseX,baseY); g.stroke();
+      g.beginPath();
+      g.moveTo(b.x,b.y);
+      g.lineTo(baseX + nx*headWidth*0.55, baseY + ny*headWidth*0.55);
+      g.lineTo(baseX - nx*headWidth*0.55, baseY - ny*headWidth*0.55);
+      g.closePath();
+      g.fill();
+      g.restore();
+      return;
+    }
+    if(s.type==='solid'){ drawSolid(g,s,mode); return; }
+    _drawStroke(g,s,mode);
+  };
+
+  // Enhanced 3D rotation rendering for solids.
+  drawSolid = function(g,o,mode=theme){
+    const {x,y,w,h}=o; if(w<1||h<1) return;
+    const spin=((o.spin3D ?? o.rotation ?? 25)%360+360)%360;
+    const angle=spin*Math.PI/180;
+    const kind=o.kind||'prism', sides=Math.max(3,Math.min(24,o.sides||4)), ht=(o.heightFactor??70)/100;
+    g.save(); g.translate(x,y); g.scale(w/360,h/300); g.lineJoin='round'; g.lineCap='round'; g.lineWidth=2.3;
+    g.strokeStyle=mode==='dark'?'#c7f7ff':'#1e496c';
+    const faceColors=['#145f8e','#1f85b6','#42bee3','#2a78aa','#6ad8ef','#3172b8','#19506c','#59c7dd'];
+    const draw=(ps,fill,closed=true,dashed=false,alpha=1)=>{ if(!ps.length)return; g.save(); g.globalAlpha=alpha; g.beginPath(); g.moveTo(ps[0][0],ps[0][1]); for(let i=1;i<ps.length;i++)g.lineTo(ps[i][0],ps[i][1]); if(closed)g.closePath(); if(fill){g.fillStyle=fill; g.fill();} g.setLineDash(dashed?[5,5]:[]); g.stroke(); g.restore(); };
+    const rx=112, ry=Math.max(28, 65*(0.7 + 0.3*Math.cos(angle*0.7)**2)), cx=180, baseY=225, topY=baseY-180*ht;
+    if(kind==='sphere'){
+      const grad=g.createRadialGradient(130+28*Math.cos(angle),95-10*Math.sin(angle),8,185,150,150);
+      grad.addColorStop(0,'#d4fbff'); grad.addColorStop(.42,'#6ed1ea'); grad.addColorStop(1,'#0d4766');
+      g.fillStyle=grad; g.beginPath(); g.arc(180,150,118,0,Math.PI*2); g.fill(); g.stroke();
+      g.strokeStyle='#dcffff99'; g.lineWidth=1.5;
+      g.beginPath(); g.ellipse(180,150,Math.max(24,84*Math.abs(Math.cos(angle))),118,0,0,2*Math.PI); g.stroke();
+      g.beginPath(); g.ellipse(180,150,118,28+10*Math.sin(angle+1.2),0,0,2*Math.PI); g.stroke();
+      g.restore(); return;
+    }
+    if(kind==='cylinder' || kind==='cone'){
+      const by=244, ty=244-195*ht, bodyRx=118, bodyRy=34;
+      const skew = Math.cos(angle), front = Math.sin(angle) >= 0 ? 1 : -1;
+      if(kind==='cylinder'){
+        const grad=g.createLinearGradient(60,0,300,0); grad.addColorStop(0,'#0e5178'); grad.addColorStop(.35,'#63d6f1'); grad.addColorStop(1,'#1e729a');
+        g.fillStyle=grad; g.fillRect(62,ty,236,by-ty);
+        g.beginPath(); g.ellipse(180,ty,bodyRx,bodyRy,0,0,Math.PI*2); g.fillStyle='#77d8ee'; g.fill(); g.stroke();
+        g.beginPath(); g.moveTo(62,ty); g.lineTo(62,by); g.ellipse(180,by,bodyRx,bodyRy,0,Math.PI,2*Math.PI); g.lineTo(298,ty); g.stroke();
+        g.setLineDash([6,5]); g.beginPath(); g.ellipse(180,by,bodyRx,bodyRy,0,0,Math.PI); g.stroke(); g.setLineDash([]);
+        g.strokeStyle='#e8ffff77'; g.lineWidth=1.6; g.beginPath(); g.ellipse(180 + 18*skew,150,Math.max(26,56*Math.abs(skew)),92,0,0,2*Math.PI); g.stroke();
+      }else{
+        const tip=[180 + 26*Math.cos(angle), ty-15];
+        draw([tip,[62,by],[298,by]],'#2198c7');
+        g.beginPath(); g.ellipse(180,by,bodyRx,bodyRy,0,0,Math.PI); g.stroke();
+        g.setLineDash([6,5]); g.beginPath(); g.ellipse(180,by,bodyRx,bodyRy,0,Math.PI,Math.PI*2); g.stroke(); g.setLineDash([]);
+        g.strokeStyle='#f3ffff88'; g.beginPath(); g.moveTo(tip[0],tip[1]); g.lineTo(180 + front*30, by); g.stroke();
+      }
+      g.restore(); return;
+    }
+    const pts=Array.from({length:sides},(_,i)=>{const a=angle+2*Math.PI*i/sides;return [cx+rx*Math.cos(a), baseY+ry*Math.sin(a)]});
+    if(kind==='prism'){
+      const upper=pts.map(p=>[p[0],p[1]-(baseY-topY)]);
+      const faces=pts.map((p,i)=>{const j=(i+1)%sides; return {depth:(p[1]+pts[j][1])/2,index:i,pts:[p,pts[j],upper[j],upper[i]]};}).sort((a,b)=>a.depth-b.depth);
+      faces.forEach((f,idx)=>draw(f.pts,faceColors[f.index%faceColors.length],true,false,0.96));
+      draw(upper,'#9ee9f4');
+      for(let i=0;i<sides;i++) if(pts[i][1] < baseY-5) draw([pts[i],upper[i]],null,false,true,.95);
+    } else {
+      const tip=[180, topY-9];
+      const faces=pts.map((p,i)=>({depth:(p[1]+pts[(i+1)%sides][1])/2,index:i,pts:[p,pts[(i+1)%sides],tip]})).sort((a,b)=>a.depth-b.depth);
+      faces.forEach(f=>draw(f.pts,faceColors[f.index%faceColors.length],true,false,0.96));
+      draw([tip,[cx,baseY]],null,false,true,.95);
+    }
+    g.restore();
+  };
+
+  // Extend contextual controls for solids and cartesian planes.
+  const _context = context;
+  context = function(){
+    _context();
+    try{
+      const el = $('context');
+      if(selected < 0 || !scene[selected] || selectionIds().length !== 1) return;
+      const o = scene[selected];
+      const label = el.querySelector('.context-label');
+      if(label && o.type === 'cartesian') label.textContent = 'Plano cartesiano · seleccionado';
+      if(!el.classList.contains('show')) el.classList.add('show');
+
+      const addBtn = (text, fn)=>{ const b=document.createElement('button'); b.textContent=text; b.onclick=fn; el.append(b); return b; };
+      const addRange = (text, min, max, step, value, oninput)=>{
+        const lab = document.createElement('label'); lab.className='ext-slider'; lab.textContent=text;
+        const input = document.createElement('input'); input.type='range'; input.min=min; input.max=max; input.step=step; input.value=value;
+        input.oninput=()=>oninput(Number(input.value));
+        lab.append(input); el.append(lab); return input;
+      };
+      if(o.type === 'solid'){
+        addRange('Rotación 3D · eje de simetría', 0, 360, 1, Math.round(o.spin3D ?? o.rotation ?? 25), v=>{ scene[selected] = {...scene[selected], spin3D:v}; render(); });
+        addRange('Altura visual del sólido', 30, 100, 1, Math.round(o.heightFactor ?? 70), v=>{ scene[selected] = {...scene[selected], heightFactor:v}; render(); });
+        const note = document.createElement('div'); note.className='ext-note'; note.textContent='Este control rota el sólido en 3D alrededor de su eje. El giro «Giro °» sigue siendo la rotación del objeto dentro de la hoja.'; el.append(note);
+      }
+      if(o.type === 'cartesian'){
+        addBtn('Editar puntos', ()=>{
+          const current = pointsToText(scene[selected].points||[]);
+          const entered = prompt('Escribe un punto por línea. Formato: etiqueta x y\nEjemplo:\nA 2 3\nB -4 1', current);
+          if(entered===null) return;
+          checkpoint();
+          scene[selected] = {...scene[selected], points: parseCartesianPoints(entered)};
+          render();
+        });
+        addBtn('Rango del plano', ()=>{
+          const o = scene[selected];
+          const entered = prompt('Escribe xmin, xmax, ymin, ymax\nEjemplo: -10, 10, -8, 8', `${o.xmin ?? -10}, ${o.xmax ?? 10}, ${o.ymin ?? -8}, ${o.ymax ?? 8}`);
+          if(entered===null) return;
+          const vals = entered.split(/[,; ]+/).map(Number).filter(Number.isFinite);
+          if(vals.length !== 4 || vals[0]===vals[1] || vals[2]===vals[3]){ alert('Valores inválidos.'); return; }
+          checkpoint();
+          scene[selected] = {...scene[selected], xmin:vals[0], xmax:vals[1], ymin:vals[2], ymax:vals[3]};
+          render();
+        });
+        const note = document.createElement('div'); note.className='ext-note'; note.textContent='Doble clic dentro del plano para insertar un punto automáticamente con su par ordenado.'; el.append(note);
+      }
+    }catch(e){ console.warn(e); }
+  };
+
+  // Insert Cartesian plane.
+  function insertCartesianPlane(){
+    if(exporting) return;
+    if(pen) finishPen();
+    if(pending) placeImage();
+    checkpoint();
+    const w=560,h=420;
+    scene.push({type:'cartesian', x:(PAGE_W-w)/2, y:(PAGE_H-h)/2, w, h, baseW:w, baseH:h, xmin:-10, xmax:10, ymin:-8, ymax:8, points:[{label:'A',x:2,y:3},{label:'B',x:-4,y:1}]});
+    setTool('select');
+    selectIds([scene.length-1]);
+    context(); render();
+    say('Plano cartesiano insertado. Usa «Editar puntos» o doble clic dentro del plano para agregar pares ordenados.');
+  }
+  const cartBtn = document.getElementById('cartesianPlane');
+  if(cartBtn) cartBtn.onclick = insertCartesianPlane;
+
+  // Double click quick point insertion on selected Cartesian plane.
+  board.addEventListener('dblclick', e=>{
+    if(selected < 0 || !scene[selected] || scene[selected].type !== 'cartesian' || exporting) return;
+    const o = scene[selected];
+    const p = point(e); const b = bounds(o);
+    if(p.x < b.x || p.x > b.x+b.w || p.y < b.y || p.y > b.y+b.h) return;
+    const q = canvasToCartesian(o,p);
+    const x = Math.round(q.x*10)/10, y = Math.round(q.y*10)/10;
+    const label = prompt(`Etiqueta para el punto (${x}, ${y})`, `P${(o.points?.length||0)+1}`);
+    if(label===null) return;
+    checkpoint();
+    scene[selected] = {...o, points:[...(o.points||[]), {label:label || `P${(o.points?.length||0)+1}`, x, y}]};
+    context(); render();
+  });
+
+  // Improve button/status copy to reflect current controls.
+  try{ $('status').textContent = 'Listo. Zoom de hoja activo · Ctrl + 2: nodos · Ctrl + Shift + 2: guías · Shift: tamaño proporcional · Plano cartesiano disponible.'; }catch(e){}
+  palette();
+  context();
+  render();
+  addStyleNotes();
+})();
+</script>
+
+<script>
+(function(){
+'use strict';
+// ===== Full-page Cartesian plane, draggable points, 2-point lines, equations =====
+let cartesianActive = false;
+let cartesianSpacing = 60;
+let cartesianShowCoords = true;
+let cartesianPointMode = false;
+let cartesianLineMode = false;
+let lineFirstPointPid = null;
+let pointLabelCounter = 0;
+function nextPointLabel(){ const n = pointLabelCounter++; const base = String.fromCharCode(65 + (n % 26)); const suf = Math.floor(n/26)||''; return base + suf; }
+function currentPageCartesian(){ return pages?.[pageIndex] || {}; }
+function pageCartesianConfig(p){
+  const cfg = p || currentPageCartesian();
+  return {
+    active: !!cfg.cartesianActive,
+    spacing: cfg.cartesianSpacing || 60,
+    showCoords: cfg.cartesianShowCoords !== false,
+    labelCounter: cfg.cartesianLabelCounter || 0,
+  };
+}
+function syncCartesianFromPage(){
+  const cfg = pageCartesianConfig();
+  cartesianActive = cfg.active;
+  cartesianSpacing = cfg.spacing;
+  cartesianShowCoords = cfg.showCoords;
+  pointLabelCounter = cfg.labelCounter;
+  refreshCartesianButtons();
+}
+function saveCartesianToPage(){
+  const p = currentPageCartesian();
+  if(!p) return;
+  p.cartesianActive = cartesianActive;
+  p.cartesianSpacing = cartesianSpacing;
+  p.cartesianShowCoords = cartesianShowCoords;
+  p.cartesianLabelCounter = pointLabelCounter;
+}
+function cartOrigin(){ return {x: PAGE_W/2, y: PAGE_H/2}; }
+function cartToScreenXY(gx,gy){ const o=cartOrigin(); return {x:o.x + gx*cartesianSpacing, y:o.y - gy*cartesianSpacing}; }
+function screenToCartXY(x,y){ const o=cartOrigin(); return {gx:(x-o.x)/cartesianSpacing, gy:(o.y-y)/cartesianSpacing}; }
+function snapCartesianPoint(x,y){ const p=screenToCartXY(x,y); return {gx:Math.round(p.gx), gy:Math.round(p.gy)}; }
+function cartPointCenter(o){ return cartToScreenXY(o.gx||0, o.gy||0); }
+function getPointByPid(pid){ return scene.find(s=>s && s.type==='cartPoint' && s.pid===pid) || null; }
+function getPointIndexByPid(pid){ return scene.findIndex(s=>s && s.type==='cartPoint' && s.pid===pid); }
+function cartLinePoints(line){ const a=getPointByPid(line.pid1), b=getPointByPid(line.pid2); return a&&b ? {a,b} : null; }
+function lineEquationText(line){ const pts=cartLinePoints(line); if(!pts) return ''; const {a,b}=pts; const x1=a.gx, y1=a.gy, x2=b.gx, y2=b.gy; if(x1===x2) return `x = ${x1}`; const m=(y2-y1)/(x2-x1); const bb=y1-m*x1; const clean=n=>Math.abs(n-Math.round(n))<1e-9?String(Math.round(n)):String(Math.round(n*100)/100); if(Math.abs(m)<1e-12) return `y = ${clean(bb)}`; const mtxt = m===1?'':m===-1?'-':clean(m); const btxt = Math.abs(bb)<1e-12 ? '' : (bb>0?` + ${clean(bb)}`:` - ${clean(Math.abs(bb))}`); return `y = ${mtxt}x${btxt}`; }
+function distancePointToInfiniteLine(px,py,x1,y1,x2,y2){ const A=py-y1,B=x2-x1,C=y2-y1,D=px-x1; const den=Math.hypot(B,C); return den?Math.abs(B*A-C*D)/den:1e9; }
+function pointNearCartesianPoint(p){ let best=null, dist=12*screenUnit(); for(let i=scene.length-1;i>=0;i--){ const o=scene[i]; if(!o||o.type!=='cartPoint') continue; const c=cartPointCenter(o); const d=Math.hypot(p.x-c.x,p.y-c.y); if(d<=dist){ dist=d; best={obj:o,index:i}; } } return best; }
+function createCartesianPoint(gx,gy,label){ checkpoint(); const pid=crypto.randomUUID(); scene.push({type:'cartPoint', pid, gx, gy, label: label || nextPointLabel()}); saveCartesianToPage(); context(); render(); return pid; }
+function createCartesianLine(pid1,pid2){ if(!pid1||!pid2||pid1===pid2) return; const exists = scene.some(s=>s && s.type==='cartLine' && ((s.pid1===pid1 && s.pid2===pid2)||(s.pid1===pid2 && s.pid2===pid1))); if(exists) return; checkpoint(); scene.push({type:'cartLine', pid1, pid2}); context(); render(); }
+
+ // toolbar UI
+ const insertGrid=document.querySelector('.insert-grid');
+ if(insertGrid && !document.getElementById('toggleCartesianFull')){
+   const mk=(id,txt,title)=>{const b=document.createElement('button');b.id=id;b.textContent=txt;b.title=title||txt;return b;};
+   insertGrid.insertBefore(mk('toggleCartesianFull','⊞ Plano total','Activa o desactiva el plano cartesiano en toda la hoja'), insertGrid.firstChild);
+   insertGrid.insertBefore(mk('cartPointTool','• Punto XY','Coloca puntos en las intersecciones del plano'), document.getElementById('cartesianPlane'));
+   insertGrid.insertBefore(mk('cartLineTool','／ Recta XY','Crea una recta a partir de dos puntos'), document.getElementById('solidLibrary'));
+   insertGrid.insertBefore(mk('cartCoordsToggle','(x,y) Coords','Muestra u oculta las coordenadas de los puntos'), document.getElementById('solidLibrary'));
+ }
+ function refreshCartesianButtons(){
+   const a=document.getElementById('toggleCartesianFull'), b=document.getElementById('cartPointTool'), c=document.getElementById('cartLineTool'), d=document.getElementById('cartCoordsToggle');
+   if(a){ a.classList.toggle('active',cartesianActive); a.textContent=cartesianActive?'⊞ Plano total ✓':'⊞ Plano total'; }
+   if(b){ b.classList.toggle('active',cartesianPointMode); }
+   if(c){ c.classList.toggle('active',cartesianLineMode); }
+   if(d){ d.classList.toggle('active',cartesianShowCoords); d.textContent=cartesianShowCoords?'(x,y) Coords ✓':'(x,y) Coords'; }
+ }
+ document.getElementById('toggleCartesianFull')?.addEventListener('click',()=>{
+   cartesianActive=!cartesianActive; cartesianPointMode=cartesianActive; cartesianLineMode=false; lineFirstPointPid=null; saveCartesianToPage(); refreshCartesianButtons(); render();
+   say(cartesianActive?'Plano cartesiano activado en toda la hoja. Usa «Punto XY» para colocar puntos o «Recta XY» para construir rectas.':'Plano cartesiano desactivado.');
+ });
+ document.getElementById('cartPointTool')?.addEventListener('click',()=>{ if(!cartesianActive){cartesianActive=true;} cartesianPointMode=!cartesianPointMode; if(cartesianPointMode) cartesianLineMode=false; lineFirstPointPid=null; saveCartesianToPage(); refreshCartesianButtons(); say(cartesianPointMode?'Modo Punto XY: clic para crear; arrastra un punto para moverlo. Coordenadas en tiempo real.':'Modo Punto XY desactivado.'); });
+ document.getElementById('cartLineTool')?.addEventListener('click',()=>{ if(!cartesianActive){cartesianActive=true;} cartesianLineMode=!cartesianLineMode; if(cartesianLineMode) cartesianPointMode=false; lineFirstPointPid=null; saveCartesianToPage(); refreshCartesianButtons(); say(cartesianLineMode?'Modo Recta XY: selecciona dos puntos. La recta seguirá sus movimientos.':'Modo Recta XY desactivado.'); });
+ document.getElementById('cartCoordsToggle')?.addEventListener('click',()=>{ cartesianShowCoords=!cartesianShowCoords; saveCartesianToPage(); refreshCartesianButtons(); context(); render(); });
+ 
+ // persist in page state
+ const _pageState = pageState; pageState = function(){ const r=_pageState(); return {...r, cartesianActive, cartesianSpacing, cartesianShowCoords, cartesianLabelCounter: pointLabelCounter}; };
+ const _saveCurrent = saveCurrent; saveCurrent = function(){ saveCartesianToPage(); return _saveCurrent(); };
+ const _goPage = goPage; goPage = function(i){ _goPage(i); syncCartesianFromPage(); };
+ syncCartesianFromPage();
+ 
+ function drawFullCartesian(g,p){
+   const active = p.cartesianActive; if(!active) return; const spacing = p.cartesianSpacing || cartesianSpacing || 60; const show = p.cartesianShowCoords !== false;
+   const o={x:PAGE_W/2,y:PAGE_H/2};
+   g.save();
+   const themeMode=p.theme||theme;
+   const fine = themeMode==='dark'?'#2d466677':'#cfe0ee';
+   const axis = themeMode==='dark'?'#9cecff':'#1b4d85';
+   const zero = themeMode==='dark'?'#ffd35b':'#cf7a00';
+   g.strokeStyle = fine; g.lineWidth = 1;
+   for(let x=o.x; x<=PAGE_W; x+=spacing){ g.beginPath(); g.moveTo(x,0); g.lineTo(x,PAGE_H); g.stroke(); }
+   for(let x=o.x-spacing; x>=0; x-=spacing){ g.beginPath(); g.moveTo(x,0); g.lineTo(x,PAGE_H); g.stroke(); }
+   for(let y=o.y; y<=PAGE_H; y+=spacing){ g.beginPath(); g.moveTo(0,y); g.lineTo(PAGE_W,y); g.stroke(); }
+   for(let y=o.y-spacing; y>=0; y-=spacing){ g.beginPath(); g.moveTo(0,y); g.lineTo(PAGE_W,y); g.stroke(); }
+   // axes
+   g.strokeStyle = axis; g.fillStyle=axis; g.lineWidth = 2.6;
+   g.beginPath(); g.moveTo(0,o.y); g.lineTo(PAGE_W,o.y); g.stroke();
+   g.beginPath(); g.moveTo(o.x,PAGE_H); g.lineTo(o.x,0); g.stroke();
+   const tip=(x,y,dx,dy)=>{ const L=12,W=5; g.beginPath(); g.moveTo(x,y); g.lineTo(x-dx*L+dy*W,y-dy*L-dx*W); g.lineTo(x-dx*L-dy*W,y-dy*L+dx*W); g.closePath(); g.fill(); };
+   tip(PAGE_W-6,o.y,1,0); tip(o.x,6,0,-1);
+   g.font='12px system-ui'; g.textAlign='center'; g.textBaseline='top';
+   const maxGX=Math.floor((PAGE_W/2)/spacing); for(let gx=-maxGX; gx<=maxGX; gx++){ if(gx===0) continue; const x=o.x+gx*spacing; g.beginPath(); g.moveTo(x,o.y-5); g.lineTo(x,o.y+5); g.stroke(); g.fillText(String(gx),x,o.y+8); }
+   g.textAlign='right'; g.textBaseline='middle';
+   const maxGY=Math.floor((PAGE_H/2)/spacing); for(let gy=-maxGY; gy<=maxGY; gy++){ if(gy===0) continue; const y=o.y-gy*spacing; g.beginPath(); g.moveTo(o.x-5,y); g.lineTo(o.x+5,y); g.stroke(); g.fillText(String(gy),o.x-8,y); }
+   g.fillStyle=zero; g.textAlign='left'; g.textBaseline='top'; g.fillText('O(0,0)',o.x+8,o.y+8); g.fillStyle=axis; g.fillText('x', PAGE_W-18, o.y-22); g.fillText('y', o.x+10, 10);
+   g.restore();
+ }
+ const _paintBase=paintBase; paintBase=function(g,p){ _paintBase(g,p); drawFullCartesian(g,p); };
+ 
+ // override drawing for Cartesian points and lines
+ const _drawStroke2 = drawStroke;
+ drawStroke = function(g,s,mode=theme){
+   if(s.type==='cartPoint'){
+     const c=cartPointCenter(s); g.save();
+     g.fillStyle = mode==='dark'?'#ff5d87':'#d7265c'; g.strokeStyle='#ffffff'; g.lineWidth=1.5; g.beginPath(); g.arc(c.x,c.y,6,0,Math.PI*2); g.fill(); g.stroke();
+     g.fillStyle = mode==='dark'?'#f5fcff':'#17324d'; g.font='600 13px system-ui'; g.textAlign='left'; g.textBaseline='bottom';
+     const text = cartesianShowCoords ? `${s.label}(${s.gx},${s.gy})` : `${s.label}`; g.fillText(text, c.x+9, c.y-8);
+     g.restore(); return;
+   }
+   if(s.type==='cartLine'){
+     const pts=cartLinePoints(s); if(!pts) return; const A=cartPointCenter(pts.a), B=cartPointCenter(pts.b);
+     const dx=B.x-A.x, dy=B.y-A.y, len=Math.hypot(dx,dy)||1, ux=dx/len, uy=dy/len;
+     const span=2200; const p1={x:A.x-ux*span,y:A.y-uy*span}, p2={x:A.x+ux*span,y:A.y+uy*span};
+     g.save(); g.strokeStyle=mode==='dark'?'#74d4ff':'#1466b3'; g.lineWidth=2.5; g.beginPath(); g.moveTo(p1.x,p1.y); g.lineTo(p2.x,p2.y); g.stroke();
+     const mid={x:(A.x+B.x)/2,y:(A.y+B.y)/2}; const eq=lineEquationText(s);
+     g.fillStyle=mode==='dark'?'#e4fbff':'#103252'; g.font='600 13px system-ui'; g.fillText(eq, mid.x+10, mid.y-10);
+     g.restore(); return;
+   }
+   _drawStroke2(g,s,mode);
+ };
+ 
+ // selection / hit testing support
+ const _bounds2 = bounds; bounds = function(o){
+   if(o.type==='cartPoint'){ const c=cartPointCenter(o); return {x:c.x-10,y:c.y-10,w:20,h:20}; }
+   if(o.type==='cartLine'){ const pts=cartLinePoints(o); if(!pts) return {x:0,y:0,w:1,h:1}; const A=cartPointCenter(pts.a), B=cartPointCenter(pts.b); return {x:Math.min(A.x,B.x)-10, y:Math.min(A.y,B.y)-10, w:Math.abs(A.x-B.x)+20, h:Math.abs(A.y-B.y)+20}; }
+   return _bounds2(o);
+ };
+ const _transformed = transformed; transformed = function(o,b){
+   if(o.type==='cartPoint'){
+     const cx=b.x+b.w/2, cy=b.y+b.h/2; const snap=snapCartesianPoint(cx,cy); return {...o, gx:snap.gx, gy:snap.gy};
+   }
+   if(o.type==='cartLine') return {...o};
+   return _transformed(o,b);
+ };
+ const _objectAt = objectAt; objectAt = function(p){
+   for(let i=scene.length-1;i>=0;i--){ const o=scene[i]; if(!o) continue; if(o.type==='cartPoint'){ const c=cartPointCenter(o); if(Math.hypot(p.x-c.x,p.y-c.y)<=12*screenUnit()+4) return i; } }
+   for(let i=scene.length-1;i>=0;i--){ const o=scene[i]; if(!o || o.type!=='cartLine') continue; const pts=cartLinePoints(o); if(!pts) continue; const A=cartPointCenter(pts.a), B=cartPointCenter(pts.b); if(distancePointToInfiniteLine(p.x,p.y,A.x,A.y,B.x,B.y)<=8*screenUnit()+4) return i; }
+   return _objectAt(p);
+ };
+ 
+ // custom pointer interception for Cartesian tools
+ // Point interaction runs ahead of the original drawing handlers.
+ // One pointer gesture = one undo checkpoint. Movement only changes coordinates.
+ let cartDrag=null;
+ const stopCanvasEvent=e=>{e.stopImmediatePropagation();e.preventDefault()};
+ const cartPointHit=p=>{let best=null;let bestDistance=18*screenUnit()+2;
+   for(let i=scene.length-1;i>=0;i--){const o=scene[i];if(o?.type!=='cartPoint')continue;
+     const c=cartPointCenter(o),d=Math.hypot(c.x-p.x,c.y-p.y);
+     if(d<=bestDistance){best={index:i,pid:o.pid};bestDistance=d;}}
+   return best;
+ };
+ function commitCartDrag(e,cancel=false){
+   if(!cartDrag||e.pointerId!==cartDrag.pointerId)return false;
+   stopCanvasEvent(e);
+   if(cancel && cartDrag.changed){const idx=getPointIndexByPid(cartDrag.pid);if(idx>=0){scene[idx]={...scene[idx],gx:cartDrag.initial.gx,gy:cartDrag.initial.gy}}}
+   try{if(board.hasPointerCapture(e.pointerId))board.releasePointerCapture(e.pointerId)}catch{}
+   cartDrag=null;
+   context();render();
+   return true;
+ }
+ board.addEventListener('pointerdown',function(e){
+   if(exporting||e.button!==0||!cartesianActive||pointer!==null||spaceDown||handMode)return;
+   // Panning, solids and all other drawing tools remain unaffected.
+   if(!cartesianPointMode&&!cartesianLineMode&&tool!=='select')return;
+   const p=point(e);if(p.x<0||p.x>PAGE_W||p.y<0||p.y>PAGE_H)return;
+   const hit=cartPointHit(p);
+   if(cartesianLineMode){
+     stopCanvasEvent(e);
+     if(!hit){say('Recta XY: selecciona un punto existente.');return;}
+     if(!lineFirstPointPid){lineFirstPointPid=hit.pid;selectIds([hit.index]);context();render();say('Primer punto seleccionado. Haz clic en el segundo punto.');return;}
+     if(lineFirstPointPid===hit.pid){say('Selecciona un segundo punto diferente.');return;}
+     createCartesianLine(lineFirstPointPid,hit.pid);lineFirstPointPid=null;
+     selectIds([hit.index]);context();render();say('Recta creada. Arrastra cualquiera de sus puntos para modificarla.');return;
+   }
+   if(hit){
+     stopCanvasEvent(e);
+     // Checkpoint at drag start permits Ctrl+Z to restore old coordinates.
+     cartDrag={pointerId:e.pointerId,pid:hit.pid,initial:{gx:scene[hit.index].gx,gy:scene[hit.index].gy},changed:false};
+     try{board.setPointerCapture(e.pointerId)}catch{}
+     selectIds([hit.index]);context();render();
+     board.style.cursor='grabbing';return;
+   }
+   if(cartesianPointMode){
+     stopCanvasEvent(e);
+     const xy=snapCartesianPoint(p.x,p.y);
+     const existing=scene.find(o=>o?.type==='cartPoint'&&o.gx===xy.gx&&o.gy===xy.gy);
+     if(existing){selectIds([getPointIndexByPid(existing.pid)]);context();render();return;}
+     const pid=createCartesianPoint(xy.gx,xy.gy);
+     selectIds([getPointIndexByPid(pid)]);context();render();
+     say('Punto '+(scene[selected]?.label||'')+' = ('+xy.gx+', '+xy.gy+'). Arrástralo para moverlo.');
+   }
+ },true);
+ board.addEventListener('pointermove',function(e){
+   if(!cartDrag||e.pointerId!==cartDrag.pointerId)return;
+   stopCanvasEvent(e);
+   const idx=getPointIndexByPid(cartDrag.pid);if(idx<0){commitCartDrag(e,true);return;}
+   const p=point(e);
+   const xy=snapCartesianPoint(Math.max(0,Math.min(PAGE_W,p.x)),Math.max(0,Math.min(PAGE_H,p.y)));
+   const obj=scene[idx];
+   if(obj.gx!==xy.gx||obj.gy!==xy.gy){
+     if(!cartDrag.changed){checkpoint();cartDrag.changed=true;}
+     scene[idx]={...obj,gx:xy.gx,gy:xy.gy};
+     // Both the point label and every dependent line equation update in the same render.
+     schedule();
+   }
+ },true);
+ board.addEventListener('pointerup',e=>commitCartDrag(e),true);
+ board.addEventListener('pointercancel',e=>commitCartDrag(e,true),true);
+ window.addEventListener('blur',()=>{if(cartDrag){try{if(board.hasPointerCapture(cartDrag.pointerId))board.releasePointerCapture(cartDrag.pointerId)}catch{}cartDrag=null;context();render();}});
+
+ 
+ // enrich context for cartesian items
+ const _context2 = context; context = function(){
+   _context2();
+   try{
+     const el=$('context'); if(selected<0 || !scene[selected] || !el) return; const o=scene[selected];
+     const addBtn=(label,fn)=>{const b=document.createElement('button'); b.textContent=label; b.onclick=fn; el.append(b); return b;};
+     const addNote=t=>{const d=document.createElement('div'); d.className='ext-note'; d.textContent=t; el.append(d)};
+     if(o.type==='cartPoint'){
+       const title=el.querySelector('.context-label');if(title)title.textContent=`Punto ${o.label} (${o.gx}, ${o.gy})`;
+       const lab=document.createElement('label'); lab.className='dimension-label'; lab.textContent='Etiqueta'; const input=document.createElement('input'); input.className='object-number'; input.type='text'; input.value=o.label||''; input.onchange=()=>{ scene[selected]={...scene[selected], label:input.value||scene[selected].label}; render(); }; lab.append(input); el.append(lab);
+       addBtn(cartesianShowCoords?'Ocultar coordenadas':'Mostrar coordenadas', ()=>{ cartesianShowCoords=!cartesianShowCoords; saveCartesianToPage(); refreshCartesianButtons(); context(); render(); });
+       addNote('Arrastra el punto y se ajustará automáticamente a la intersección más cercana del plano cartesiano.');
+     }
+     if(o.type==='cartLine'){
+       const title=el.querySelector('.context-label');if(title)title.textContent='Recta: '+lineEquationText(o);
+       addBtn('Mostrar ecuación', ()=>{ render(); });
+       addNote('Esta recta se actualiza automáticamente cuando mueves cualquiera de sus dos puntos. Ecuación: '+lineEquationText(o));
+     }
+   }catch(err){ console.warn(err); }
+ };
+ 
+ // ===== Improved 3D solids with multi-axis rotation and richer shading =====
+ function rot3(v,yaw,pitch,roll){
+   let {x,y,z}=v; const cy=Math.cos(yaw), sy=Math.sin(yaw), cx=Math.cos(pitch), sx=Math.sin(pitch), cz=Math.cos(roll), sz=Math.sin(roll);
+   // yaw Y
+   let x1 = x*cy + z*sy, z1 = -x*sy + z*cy; let y1=y;
+   // pitch X
+   let y2 = y1*cx - z1*sx, z2 = y1*sx + z1*cx, x2=x1;
+   // roll Z
+   let x3 = x2*cz - y2*sz, y3 = x2*sz + y2*cz, z3=z2;
+   return {x:x3,y:y3,z:z3};
+ }
+ function project3(v,scale=120,dist=4.6){ const k=dist/(dist-v.z); return {x:v.x*k*scale, y:-v.y*k*scale, z:v.z}; }
+ function shadeColor(hex,amt){
+   const n=hex.replace('#',''); const x = n.length===3 ? n.split('').map(c=>c+c).join('') : n; const v=parseInt(x,16);
+   let r=(v>>16)&255,g=(v>>8)&255,b=v&255; const f=amt>=0?255:0, p=Math.abs(amt); r=Math.round(r*(1-p)+f*p); g=Math.round(g*(1-p)+f*p); b=Math.round(b*(1-p)+f*p); return `rgb(${r},${g},${b})`;
+ }
+ drawSolid = function(g,o,mode=theme){
+   const {x,y,w,h}=o; if(w<1||h<1) return;
+   const kind=o.kind||'prism', n=Math.max(3,Math.min(24,o.sides||4)), H=1.25*((o.heightFactor??70)/70), R=1.22;
+   const yaw=((o.yaw3D ?? o.spin3D ?? o.rotation ?? 25))*Math.PI/180, pitch=((o.pitch3D ?? 18))*Math.PI/180, roll=((o.roll3D ?? 0))*Math.PI/180;
+   g.save(); g.translate(x+w/2, y+h/2+10); const scale=Math.min(w,h)*0.28; g.lineWidth=Math.max(1.3, Math.min(w,h)*0.008); g.lineJoin='round'; g.lineCap='round';
+   const basePalette = ['#2aa6d8','#1a7fb6','#53c8ec','#165c8b','#4dd8ff','#2574a9'];
+   const edge = mode==='dark' ? '#e7fdff' : '#1b4969';
+   const lightDir = {x:-0.4,y:0.7,z:0.55};
+   function dot(a,b){ return a.x*b.x+a.y*b.y+a.z*b.z; }
+   function norm(v){ const m=Math.hypot(v.x,v.y,v.z)||1; return {x:v.x/m,y:v.y/m,z:v.z/m}; }
+   function sub(a,b){ return {x:a.x-b.x,y:a.y-b.y,z:a.z-b.z}; }
+   function cross(a,b){ return {x:a.y*b.z-a.z*b.y,y:a.z*b.x-a.x*b.z,z:a.x*b.y-a.y*b.x}; }
+   function drawFace(verts, baseColor){
+     const rv=verts.map(v=>rot3(v,yaw,pitch,roll));
+     const nrm=norm(cross(sub(rv[1],rv[0]), sub(rv[2],rv[0])));
+     const light=dot(nrm,norm(lightDir));
+     const shade = Math.max(-0.35, Math.min(0.45, light*0.45));
+     const pts=rv.map(v=>project3(v,scale));
+     const depth=rv.reduce((s,v)=>s+v.z,0)/rv.length;
+     return {pts, depth, fill:shadeColor(baseColor, shade), edge, front:light};
+   }
+   let faces=[];
+   if(kind==='prism'){
+     const bottom = Array.from({length:n},(_,i)=>{ const a=2*Math.PI*i/n; return {x:R*Math.cos(a), y:-H/2, z:R*Math.sin(a)}; });
+     const top = bottom.map(v=>({x:v.x,y:H/2,z:v.z}));
+     for(let i=0;i<n;i++){ const j=(i+1)%n; faces.push(drawFace([bottom[i], bottom[j], top[j], top[i]], basePalette[i%basePalette.length])); }
+     faces.push(drawFace([...top].reverse(), '#9ae8ff')); faces.push(drawFace(bottom, '#0a4f7c'));
+   } else if(kind==='pyramid'){
+     const bottom = Array.from({length:n},(_,i)=>{ const a=2*Math.PI*i/n; return {x:R*Math.cos(a), y:-H/2, z:R*Math.sin(a)}; });
+     const top = {x:0,y:H/2,z:0};
+     for(let i=0;i<n;i++){ const j=(i+1)%n; faces.push(drawFace([bottom[i], bottom[j], top], basePalette[i%basePalette.length])); }
+     faces.push(drawFace(bottom, '#0a4f7c'));
+   } else if(kind==='sphere'){
+     const grad=g.createRadialGradient(-scale*0.45,-scale*0.55,scale*0.12,0,0,scale*1.18); grad.addColorStop(0,'#eefcff'); grad.addColorStop(.16,'#b2efff'); grad.addColorStop(.55,'#42bfe8'); grad.addColorStop(1,'#0d537f');
+     g.fillStyle=grad; g.strokeStyle=edge; g.beginPath(); g.arc(0,0,scale*1.18,0,Math.PI*2); g.fill(); g.stroke();
+     g.strokeStyle='rgba(255,255,255,.5)'; g.lineWidth*=.9;
+     const a1 = Math.max(0.18, Math.abs(Math.cos(yaw))); const a2 = Math.max(0.18, Math.abs(Math.cos(pitch)));
+     g.beginPath(); g.ellipse(0,0,scale*1.05*a1,scale*1.16,roll,0,Math.PI*2); g.stroke();
+     g.beginPath(); g.ellipse(0,0,scale*1.16,scale*0.42*a2,yaw*0.3,0,Math.PI*2); g.stroke();
+     g.restore(); return;
+   } else if(kind==='cylinder'){
+     const ellRX = scale*1.02, ellRY = scale*0.33*Math.max(0.28, Math.abs(Math.cos(pitch)));
+     const topY = -scale*0.95, botY = scale*0.95;
+     const grad=g.createLinearGradient(-ellRX,0,ellRX,0); grad.addColorStop(0,'#0c547e'); grad.addColorStop(.35,'#6ad9ff'); grad.addColorStop(.7,'#2a99c8'); grad.addColorStop(1,'#0f5f8e');
+     g.fillStyle=grad; g.beginPath(); g.moveTo(-ellRX,topY); g.lineTo(-ellRX,botY); g.bezierCurveTo(-ellRX,botY+ellRY,ellRX,botY+ellRY,ellRX,botY); g.lineTo(ellRX,topY); g.bezierCurveTo(ellRX,topY-ellRY,-ellRX,topY-ellRY,-ellRX,topY); g.closePath(); g.fill();
+     g.strokeStyle=edge; g.beginPath(); g.ellipse(0,topY,ellRX,ellRY,0,0,Math.PI*2); g.fillStyle='rgba(160,240,255,.9)'; g.fill(); g.stroke();
+     g.beginPath(); g.moveTo(-ellRX,topY); g.lineTo(-ellRX,botY); g.moveTo(ellRX,topY); g.lineTo(ellRX,botY); g.stroke();
+     g.beginPath(); g.ellipse(0,botY,ellRX,ellRY,0,0,Math.PI); g.stroke(); g.setLineDash([6,5]); g.beginPath(); g.ellipse(0,botY,ellRX,ellRY,0,Math.PI,2*Math.PI); g.stroke(); g.setLineDash([]); g.restore(); return;
+   } else if(kind==='cone'){
+     const ellRX = scale*1.02, ellRY = scale*0.33*Math.max(0.28, Math.abs(Math.cos(pitch))); const tip={x:0,y:-scale*1.26}; const grad=g.createLinearGradient(-ellRX,0,ellRX,0); grad.addColorStop(0,'#0c547e'); grad.addColorStop(.35,'#6ad9ff'); grad.addColorStop(1,'#1780aa');
+     g.fillStyle=grad; g.beginPath(); g.moveTo(tip.x,tip.y); g.lineTo(-ellRX,scale*1.0); g.bezierCurveTo(-ellRX,scale*1.0+ellRY,ellRX,scale*1.0+ellRY,ellRX,scale*1.0); g.closePath(); g.fill(); g.strokeStyle=edge; g.stroke();
+     g.beginPath(); g.ellipse(0,scale*1.0,ellRX,ellRY,0,0,Math.PI); g.stroke(); g.setLineDash([6,5]); g.beginPath(); g.ellipse(0,scale*1.0,ellRX,ellRY,0,Math.PI,2*Math.PI); g.stroke(); g.setLineDash([]); g.restore(); return;
+   }
+   faces.sort((a,b)=>a.depth-b.depth);
+   faces.forEach(f=>{ g.fillStyle=f.fill; g.strokeStyle=edge; g.beginPath(); g.moveTo(f.pts[0].x,f.pts[0].y); for(let i=1;i<f.pts.length;i++) g.lineTo(f.pts[i].x,f.pts[i].y); g.closePath(); g.fill(); g.stroke(); });
+   g.restore();
+ };
+ // more 3D controls in context
+ const _context3=context; context=function(){ _context3(); try{ if(selected<0 || !scene[selected]) return; const o=scene[selected], el=$('context'); if(!el || selectionIds().length!==1) return; if(o.type==='solid'){
+   const makeRange=(label,key,min,max,step,val)=>{ const lab=document.createElement('label'); lab.className='ext-slider'; lab.textContent=label; const input=document.createElement('input'); input.type='range'; input.min=min; input.max=max; input.step=step; input.value=val; input.oninput=()=>{ scene[selected]={...scene[selected],[key]:Number(input.value)}; render(); }; lab.append(input); el.append(lab); };
+   makeRange('Yaw 3D', 'yaw3D', 0, 360, 1, Math.round(o.yaw3D ?? o.spin3D ?? o.rotation ?? 25));
+   makeRange('Pitch 3D', 'pitch3D', -80, 80, 1, Math.round(o.pitch3D ?? 18));
+   makeRange('Roll 3D', 'roll3D', -180, 180, 1, Math.round(o.roll3D ?? 0));
+   const note=document.createElement('div'); note.className='ext-note'; note.textContent='Ahora los sólidos pueden rotar en varias direcciones: yaw, pitch y roll. El sombreado y los matices se recalculan en cada giro.'; el.append(note);
+ } }catch(e){ console.warn(e); } };
+ // update solid creation defaults
+ const _createSolid=createSolid; createSolid=function(kind,sides,heightFactor,rotation){ _createSolid(kind,sides,heightFactor,rotation); const idx=scene.length-1; if(scene[idx]?.type==='solid'){ scene[idx]={...scene[idx], yaw3D: rotation ?? 25, pitch3D: 18, roll3D: 0}; render(); } };
+ // Switching to a regular drawing/selection tool exits Point/Line placement,
+ // preventing new points from being created accidentally on ordinary tool use.
+ const _setToolCartesianSafe=setTool;
+ setTool=function(nextTool){
+   cartesianPointMode=false;cartesianLineMode=false;lineFirstPointPid=null;
+   refreshCartesianButtons();
+   return _setToolCartesianSafe(nextTool);
+ };
+ // Remove the redundant small Cartesian widget; only the full-page plane remains.
+ document.getElementById('cartesianPlane')?.remove();
+ // Remove earlier help text describing the obsolete inset plane.
+ const oldHelp=document.getElementById('premiumAddonNotes');
+ if(oldHelp){const p=oldHelp.querySelector('p');if(p)p.textContent='Plano cartesiano de hoja completa: activa «Plano total», inserta puntos en sus intersecciones, arrástralos para cambiar sus coordenadas y usa «Recta XY» para crear una recta por dos puntos.';}
+ // Clean visual organization: compact controls, premium colors and clearer active modes.
+ const css=document.createElement('style');css.textContent=`
+ .insert-grid{gap:7px!important}
+ #toggleCartesianFull,#cartPointTool,#cartLineTool,#cartCoordsToggle{font-weight:700;letter-spacing:.15px;border:1px solid #426a9a;background:linear-gradient(130deg,#143357,#1a2b49);box-shadow:inset 0 1px 0 #ffffff18,0 4px 12px #0002;transition:background .15s,border-color .15s,box-shadow .15s}
+ #toggleCartesianFull.active,#cartPointTool.active,#cartLineTool.active,#cartCoordsToggle.active{background:linear-gradient(135deg,#146b72,#19517f);border-color:#5ce9de;box-shadow:0 0 0 1px #44e6d522,0 0 18px #30d5c42b;color:#f1ffff}
+ #viewTools{border-color:#5b7594;background:linear-gradient(135deg,#102138ec,#162b46f2)}
+ #leftRail{scrollbar-color:#446988 #0c1a2d}
+ #context.show{border-color:#4a8aab;box-shadow:inset 0 1px #ffffff10}
+ #board{touch-action:none}
+ `;document.head.append(css);
+ // init
+ refreshCartesianButtons(); saveCartesianToPage(); render();
+})();
+</script>
+</body></html>
