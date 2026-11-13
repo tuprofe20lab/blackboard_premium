@@ -343,7 +343,7 @@ function context(){$('polygonOptions').style.display=(tool==='polygon'||scene[se
    }
    el.append(colorPanel);
  }
- button('Girar −15°',()=>rotateSelection(-15));button('Girar +15°',()=>rotateSelection(15));button('Reflejar horizontal',()=>reflectSelection());button('Agrupar · Ctrl G',()=>groupSelected());if(selectionIds().some(i=>scene[i].groupId))button('Desagrupar',()=>groupSelected(true));button('Duplicar',duplicateSelected);button('Eliminar',deleteSelected);button('Listo',()=>setTool('pencil'))}else if(pen){button('Terminar ↵',()=>finishPen(false));button('Cerrar trazado',()=>finishPen(true));button('Cancelar',()=>{pen=null;context();render()})}updateUndo();syncStyleControls()}
+ button('Girar −15°',()=>rotateSelection(-15));button('Girar +15°',()=>rotateSelection(15));button('Reflejar horizontal',()=>reflectSelection());button('Agrupar · Ctrl G',()=>groupSelected());if(selectionIds().some(i=>scene[i].groupId))button('Desagrupar',()=>groupSelected(true));button('Duplicar',duplicateSelected);if(selectionIds().length===1&&o.type==='formula')button('✎ Editar LaTeX',()=>editExistingFormula(selected));button('Eliminar',deleteSelected);button('Listo',()=>setTool('pencil'))}else if(pen){button('Terminar ↵',()=>finishPen(false));button('Cerrar trazado',()=>finishPen(true));button('Cancelar',()=>{pen=null;context();render()})}updateUndo();syncStyleControls()}
 function finishPen(closed=false){let added=-1;if(pen&&pen.nodes.length>1){checkpoint();scene.push({...pen,closed,baseW:bounds(pen).w,fill:fillEnabled,fillColor,fillOpacity});added=scene.length-1;say('Trazado colocado. Puedes comenzar otra línea.')}pen=null;hover=null;magnetHover=false;if(closed&&added>=0){tool='select';selected=added;document.querySelectorAll('[data-tool]').forEach(b=>b.classList.toggle('active',b.dataset.tool==='select'));cursorForView();say('Figura cerrada y seleccionada. Activa «Rellenar figura», elige el color y ajusta la opacidad.')}context();render()}
 function setTool(t){if(t!=='trajectory'&&tool==='trajectory'){$('motionPath').classList.remove('active')}handMode=false;if(pen)finishPen();if(pending)placeImage();selected=-1;multi=[];context();tool=t;$('polygonOptions').style.display=(t==='polygon'||scene[selected]?.type==='polygon')?'block':'none';cursorForView();document.querySelectorAll('[data-tool]').forEach(b=>b.classList.toggle('active',b.dataset.tool===t));say(t==='select'?'Selecciona y arrastra para mover. Shift + clic añade objetos; arrastra desde un espacio vacío para seleccionarlos con un marco. Ctrl G agrupa; Ctrl Shift G desagrupa. Los tiradores permiten ancho y alto independientes. Shift mantiene la proporción. El círculo superior gira. Alt arrastra una copia.':t==='arrow'?'Arrastra para crear una flecha. Shift ajusta a incrementos de 45°. Selecciona para girar o cambiar su longitud y orientación.':t==='polygon'?'Polígono regular: elige los lados y arrastra desde el centro. Shift ajusta el giro.':(t==='rect'||t==='ellipse')?'Arrastra para crear la figura. Mantén Shift para un cuadrado o una circunferencia. Luego puedes moverla con Seleccionar.':t==='pen'?'Pluma: clic para rectas; arrastra para curvas. Acerca el punto final al primero para cerrar con el imán.':t==='highlighter'?'Resaltador al 30% de opacidad. Puedes combinarlo con la escuadra.':'Lápiz de punta elíptica al 50%, inclinación −15°. Shift activa la escuadra.');render();}
 for(const b of document.querySelectorAll('[data-tool]'))b.onclick=()=>setTool(b.dataset.tool);
@@ -375,12 +375,30 @@ $('paste').onclick=async()=>{try{if(!navigator.clipboard?.read)throw Error();con
 board.ondragover=e=>e.preventDefault();board.ondrop=e=>{e.preventDefault();loadImage([...e.dataTransfer.files].find(f=>f.type.startsWith('image/')))};
 let previewSequence=0;
 async function preview(){const seq=++previewSequence;$('insertMath').disabled=true;try{await MathJax.startup.promise;const node=await MathJax.tex2svgPromise($('latex').value,{display:true});if(seq!==previewSequence)return;if(node.querySelector('[data-mjx-error]'))throw Error('Revisa la sintaxis de tu fórmula LaTeX.');$('preview').replaceChildren(node);$('insertMath').disabled=false}catch(e){if(seq===previewSequence)$('preview').textContent=e.message}}
-$('math').onclick=()=>{if(pen)finishPen();if(pending)placeImage();$('formula').showModal();preview()};$('latex').oninput=preview;$('cancelMath').onclick=()=>$('formula').close();
+let editingFormulaIndex=-1;
+function editExistingFormula(index){
+ const o=scene[index];if(!o||o.type!=='formula')return;
+ editingFormulaIndex=index;
+ $('latex').value=o.source||'';
+ $('formula').querySelector('h2').textContent='Editar fórmula LaTeX';
+ $('insertMath').textContent='Guardar cambios';
+ $('formula').showModal();preview();
+}
+$('math').onclick=()=>{
+ if(pen)finishPen();if(pending)placeImage();
+ editingFormulaIndex=-1;
+ $('formula').querySelector('h2').textContent='Insertar fórmula';
+ $('insertMath').textContent='Colocar fórmula';
+ $('formula').showModal();preview();
+};
+$('latex').oninput=preview;
+$('cancelMath').onclick=()=>$('formula').close();
+$('formula').addEventListener('close',()=>{editingFormulaIndex=-1;});
 // Each formula is an independent transparent SVG image, with one color per board theme.
 $('insertMath').onclick=async()=>{
  const insert=$('insertMath');insert.disabled=true;
  try{
-  const source=$('latex').value;const formulaColor=color;
+  const source=$('latex').value;const target=editingFormulaIndex>=0?scene[editingFormulaIndex]:null;const formulaColor=target?.formulaColor??color;
   if(!window.MathJax?.tex2svgPromise)throw Error('El motor de fórmulas aún está cargando. Comprueba tu conexión e inténtalo nuevamente.');
   await MathJax.startup.promise;
   const container=await MathJax.tex2svgPromise(source,{display:true});const original=container.querySelector('svg');
@@ -391,8 +409,18 @@ $('insertMath').onclick=async()=>{
    const serialized=new XMLSerializer().serializeToString(svg);const img=new Image();img.src='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(serialized);await img.decode();images[m]=img;
   }
   checkpoint();const scale=Math.min(1,W*.8/fw,H*.6/fh);const w=fw*scale,h=fh*scale;
-  scene.push({type:'formula',image:images,source,x:(W-w)/2,y:(H-h)/2,w,h,baseW:w,baseH:h});
-  $('formula').close();setTool('select');selected=scene.length-1;context();render();say('Fórmula insertada como imagen transparente. Arrástrala para moverla y usa las esquinas o − / + para cambiar su tamaño.');
+  if(target){
+   const idx=editingFormulaIndex;
+   const old=scene[idx],ratio=old.w/Math.max(1,old.h),newRatio=w/Math.max(1,h);
+   const nextW=old.w,nextH=old.w/newRatio;
+   scene[idx]={...old,source,image:images,formulaColor,w:nextW,h:nextH,baseW:w,baseH:h};
+   $('formula').close();selectIds([idx]);context();render();
+   say('Fórmula editada. El original y las otras copias conservan su contenido.');
+  }else{
+   scene.push({type:'formula',image:images,source,formulaColor,x:(W-w)/2,y:(H-h)/2,w,h,baseW:w,baseH:h});
+   $('formula').close();setTool('select');selectIds([scene.length-1]);context();render();
+   say('Fórmula insertada. Puedes duplicarla y editar cada copia independientemente.');
+  }
  }catch(e){say('No se pudo insertar la fórmula: '+e.message)}finally{insert.disabled=false}
 };
 // Pages retain their own content, background, patterns and undo history.
@@ -1195,7 +1223,7 @@ if(!workspace||!source||!math)return;
 const panel=document.createElement('section');
 panel.id='tp20QuickTools';
 panel.setAttribute('aria-label','Paleta flotante y fórmulas LaTeX');
-panel.innerHTML='<div class="tp20-head"><span>🎨 Colores · TuProfe20</span><button type="button" class="tp20-minimize" title="Minimizar paleta">−</button></div><div class="tp20-body"><div class="tp20-actions"><button type="button" class="tp20-stroke">✎ Trazo</button><button type="button" class="tp20-fill">▣ Relleno</button></div><div class="tp20-grid"></div><p class="tp20-caption">Selecciona un color antes de dibujar o con un objeto seleccionado.</p><button type="button" class="tp20-latex" style="width:100%">ƒ Insertar código LaTeX</button></div>';
+panel.innerHTML='<div class="tp20-head"><span>🎨</span><button type="button" class="tp20-minimize" title="Minimizar paleta">−</button></div><div class="tp20-body"><div class="tp20-actions"><button type="button" class="tp20-pen" title="Activar lápiz">✎</button><button type="button" class="tp20-stroke" title="Color del trazo">Trazo</button><button type="button" class="tp20-fill" title="Color del relleno">Relleno</button></div><div class="tp20-grid"></div><div class="tp20-actions tp20-secondary"><button type="button" class="tp20-enable-fill" title="Activar o desactivar relleno">▣ Rellenar</button><button type="button" class="tp20-latex">ƒ LaTeX</button></div></div>';
 workspace.append(panel);
 const access=document.createElement('button');access.type='button';access.id='tp20QuickAccess';access.textContent='🎨 Colores · ƒ LaTeX';access.title='Mostrar paleta flotante';workspace.append(access);
 const grid=panel.querySelector('.tp20-grid');
@@ -1216,12 +1244,17 @@ function rebuild(){
  });
  panel.querySelector('.tp20-stroke').classList.toggle('active',document.getElementById('strokeTarget')?.classList.contains('active'));
  panel.querySelector('.tp20-fill').classList.toggle('active',document.getElementById('fillTarget')?.classList.contains('active'));
+ panel.querySelector('.tp20-enable-fill').classList.toggle('active',!!document.getElementById('fillEnabled')?.checked);
 }
 new MutationObserver(()=>{if(!rebuildPending){rebuildPending=true;requestAnimationFrame(rebuild)}}).observe(source,{childList:true,subtree:true,attributes:true,attributeFilter:['class','style']});
 rebuild();
+panel.querySelector('.tp20-pen').onclick=()=>document.querySelector('[data-tool="pencil"]')?.click();
+panel.querySelector('.tp20-enable-fill').onclick=()=>{const checkbox=document.getElementById('fillEnabled');if(checkbox){checkbox.checked=!checkbox.checked;checkbox.dispatchEvent(new Event('change',{bubbles:true}));panel.querySelector('.tp20-enable-fill').classList.toggle('active',checkbox.checked)}};
 panel.querySelector('.tp20-stroke').onclick=()=>document.getElementById('strokeTarget')?.click();
 panel.querySelector('.tp20-fill').onclick=()=>document.getElementById('fillTarget')?.click();
 panel.querySelector('.tp20-latex').onclick=()=>math.click();
+panel.querySelector('.tp20-pen').classList.toggle('active',!!document.querySelector('[data-tool="pencil"].active'));
+document.querySelectorAll('[data-tool]').forEach(b=>b.addEventListener('click',()=>panel.querySelector('.tp20-pen').classList.toggle('active',!!document.querySelector('[data-tool="pencil"].active'))));
 panel.querySelector('.tp20-minimize').onclick=()=>{panel.classList.toggle('collapsed');panel.querySelector('.tp20-minimize').textContent=panel.classList.contains('collapsed')?'+':'−'};
 access.onclick=()=>{panel.classList.remove('collapsed');document.body.classList.toggle('tp20-quick-visible');if(!document.body.classList.contains('focus-mode')&&!document.fullscreenElement)panel.style.display=document.body.classList.contains('tp20-quick-visible')?'block':'';};
 let dragging=null;
@@ -1232,4 +1265,20 @@ head.addEventListener('pointerup',()=>dragging=null);head.addEventListener('poin
 const tip=document.createElement('span');tip.textContent=' · Fórmulas LaTeX disponibles desde la barra flotante';const info=document.getElementById('zoomHint');if(info)info.append(tip);
 })();
 </script>
+
+<style>
+/* V2 ultra-compact floating tools: only essentials */
+#tp20QuickTools{width:148px!important;top:60px;right:10px;padding:6px;border-radius:11px;max-height:calc(100vh - 70px)}
+#tp20QuickTools .tp20-head{margin:0 0 4px;font-size:11px}
+#tp20QuickTools .tp20-head button{min-height:20px;padding:0 5px}
+#tp20QuickTools .tp20-actions{gap:3px;margin:0 0 5px}
+#tp20QuickTools .tp20-actions button{min-height:25px;padding:2px 3px;font-size:10px}
+#tp20QuickTools .tp20-grid{grid-template-columns:repeat(8,minmax(0,1fr));gap:3px}
+#tp20QuickTools .tp20-grid button{min-height:13px;border-width:1px;border-radius:4px}
+#tp20QuickTools .tp20-secondary{margin-top:5px;margin-bottom:0}
+#tp20QuickTools .tp20-secondary button{min-height:25px}
+#tp20QuickTools .tp20-actions button.active{background:#0d8392;border-color:#6ef5f0}
+#tp20QuickAccess{font-size:11px;padding:6px 9px;bottom:8px;right:8px}
+@media(max-width:600px){#tp20QuickTools{width:138px!important;top:48px;right:5px}}
+</style>
 </body></html>
