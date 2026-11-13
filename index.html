@@ -1166,4 +1166,70 @@ $el('extrudePolygon').onclick=()=>{
 $el('solidLibrary').addEventListener('click',()=>{if(scene[selected]?.type==='solid'&&scene[selected].solidColor)colorPick.value=scene[selected].solidColor;defaultSolidColor=colorPick.value;updateKind();});
 })();
 </script>
+
+<!-- TP20 FLOATING MATH AND PALETTE V1 -->
+<style>
+#tp20QuickTools{position:fixed;top:76px;right:20px;z-index:990;display:none;width:228px;max-height:calc(100vh - 98px);overflow:auto;background:linear-gradient(145deg,#13243c,#0b1628);color:#effaff;border:1px solid #58bbd1;border-radius:15px;box-shadow:0 14px 40px #0008;padding:10px;touch-action:pan-y;font-family:system-ui,sans-serif}
+body.focus-mode #tp20QuickTools,body:fullscreen #tp20QuickTools,#workspace:fullscreen #tp20QuickTools,body.tp20-quick-visible #tp20QuickTools{display:block}
+#tp20QuickTools .tp20-head{display:flex;align-items:center;justify-content:space-between;gap:6px;cursor:move;touch-action:none;font-size:13px;font-weight:750;margin-bottom:9px;user-select:none}
+#tp20QuickTools button{cursor:pointer;color:#fff;border:1px solid #3a6e85;background:#213b56;border-radius:8px;min-height:31px;padding:5px 8px;font-size:12px}
+#tp20QuickTools button:focus-visible{outline:2px solid #7ee8f1;outline-offset:2px}
+#tp20QuickTools .tp20-actions{display:flex;gap:5px;margin-bottom:9px}
+#tp20QuickTools .tp20-actions button{flex:1}
+#tp20QuickTools .tp20-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:6px}
+#tp20QuickTools .tp20-grid button{aspect-ratio:1;min-height:27px;padding:0;border-radius:8px;border:2px solid #ffffff65}
+#tp20QuickTools .tp20-grid button.active{outline:2px solid #fff;outline-offset:1px;box-shadow:0 0 0 3px #22b8cf55}
+#tp20QuickTools .tp20-minimize{flex:0!important}
+#tp20QuickTools.collapsed .tp20-body{display:none}
+#tp20QuickTools .tp20-caption{font-size:11px;opacity:.8;margin:3px 0 7px}
+#tp20QuickAccess{position:fixed;bottom:18px;right:18px;z-index:989;display:none;border:1px solid #59cce4;border-radius:22px;padding:10px 13px;color:#fff;background:#16314c;box-shadow:0 6px 22px #0009;cursor:pointer}
+body.focus-mode #tp20QuickAccess,body:fullscreen #tp20QuickAccess,#workspace:fullscreen #tp20QuickAccess{display:block}
+body.focus-mode #tp20QuickTools:not(.collapsed)~#tp20QuickAccess,body:fullscreen #tp20QuickTools:not(.collapsed)~#tp20QuickAccess{opacity:.78}
+@media(max-width:600px){#tp20QuickTools{right:8px;top:54px;width:205px}}
+</style>
+<script>
+(()=>{
+'use strict';
+const workspace=document.getElementById('workspace'),source=document.getElementById('palette'),math=document.getElementById('math');
+if(!workspace||!source||!math)return;
+const panel=document.createElement('section');
+panel.id='tp20QuickTools';
+panel.setAttribute('aria-label','Paleta flotante y fórmulas LaTeX');
+panel.innerHTML='<div class="tp20-head"><span>🎨 Colores · TuProfe20</span><button type="button" class="tp20-minimize" title="Minimizar paleta">−</button></div><div class="tp20-body"><div class="tp20-actions"><button type="button" class="tp20-stroke">✎ Trazo</button><button type="button" class="tp20-fill">▣ Relleno</button></div><div class="tp20-grid"></div><p class="tp20-caption">Selecciona un color antes de dibujar o con un objeto seleccionado.</p><button type="button" class="tp20-latex" style="width:100%">ƒ Insertar código LaTeX</button></div>';
+workspace.append(panel);
+const access=document.createElement('button');access.type='button';access.id='tp20QuickAccess';access.textContent='🎨 Colores · ƒ LaTeX';access.title='Mostrar paleta flotante';workspace.append(access);
+const grid=panel.querySelector('.tp20-grid');
+let rebuildPending=false;
+function rebuild(){
+ rebuildPending=false;
+ const items=Array.from(source.querySelectorAll('button'));
+ const current=grid.children;
+ if(items.length!==current.length)grid.replaceChildren();
+ items.forEach((sw,i)=>{
+  let b=grid.children[i];
+  if(!b){b=document.createElement('button');b.type='button';grid.append(b)}
+  b.style.background=sw.style.background;
+  b.classList.toggle('active',sw.classList.contains('active'));
+  b.title=sw.title||sw.getAttribute('aria-label')||'Color';
+  b.setAttribute('aria-label',b.title);
+  b.onclick=()=>sw.click();
+ });
+ panel.querySelector('.tp20-stroke').classList.toggle('active',document.getElementById('strokeTarget')?.classList.contains('active'));
+ panel.querySelector('.tp20-fill').classList.toggle('active',document.getElementById('fillTarget')?.classList.contains('active'));
+}
+new MutationObserver(()=>{if(!rebuildPending){rebuildPending=true;requestAnimationFrame(rebuild)}}).observe(source,{childList:true,subtree:true,attributes:true,attributeFilter:['class','style']});
+rebuild();
+panel.querySelector('.tp20-stroke').onclick=()=>document.getElementById('strokeTarget')?.click();
+panel.querySelector('.tp20-fill').onclick=()=>document.getElementById('fillTarget')?.click();
+panel.querySelector('.tp20-latex').onclick=()=>math.click();
+panel.querySelector('.tp20-minimize').onclick=()=>{panel.classList.toggle('collapsed');panel.querySelector('.tp20-minimize').textContent=panel.classList.contains('collapsed')?'+':'−'};
+access.onclick=()=>{panel.classList.remove('collapsed');document.body.classList.toggle('tp20-quick-visible');if(!document.body.classList.contains('focus-mode')&&!document.fullscreenElement)panel.style.display=document.body.classList.contains('tp20-quick-visible')?'block':'';};
+let dragging=null;
+const head=panel.querySelector('.tp20-head');
+head.addEventListener('pointerdown',e=>{if(e.target.closest('button'))return;const r=panel.getBoundingClientRect();dragging={x:e.clientX-r.left,y:e.clientY-r.top};head.setPointerCapture(e.pointerId);e.preventDefault();});
+head.addEventListener('pointermove',e=>{if(!dragging)return;const x=Math.max(0,Math.min(window.innerWidth-panel.offsetWidth,e.clientX-dragging.x)),y=Math.max(0,Math.min(window.innerHeight-45,e.clientY-dragging.y));panel.style.left=x+'px';panel.style.top=y+'px';panel.style.right='auto'});
+head.addEventListener('pointerup',()=>dragging=null);head.addEventListener('pointercancel',()=>dragging=null);
+const tip=document.createElement('span');tip.textContent=' · Fórmulas LaTeX disponibles desde la barra flotante';const info=document.getElementById('zoomHint');if(info)info.append(tip);
+})();
+</script>
 </body></html>
