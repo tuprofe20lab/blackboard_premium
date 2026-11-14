@@ -94,7 +94,7 @@ body .brand h1{font-size:21px}body .brand h1 span{font-size:11px;letter-spacing:
 <dialog id="solidsDialog"><h2>Biblioteca de sólidos geométricos · TuProfe20</h2><p class="subtle">Inserta sólidos 3D esquemáticos y editables. El tamaño de la página permanece fijo. Selecciona el sólido para girarlo o modificar ancho y alto por separado.</p><div class="solid-options"><label>Figura <select id="solidKind"><option value="prism">Prisma</option><option value="pyramid">Pirámide</option><option value="sphere">Esfera</option><option value="cylinder">Cilindro</option><option value="cone">Cono</option></select></label><label>Polígono de la base <select id="solidSides"><option value="3">Triángulo</option><option value="4" selected>Cuadrado</option><option value="5">Pentágono</option><option value="6">Hexágono</option><option value="7">Heptágono</option><option value="8">Octágono</option><option value="10">Decágono</option><option value="12">Dodecágono</option></select></label><label>Altura visual <input id="solidHeight" type="range" min="30" max="100" value="70"></label><label>Giro de la base <input id="solidRotation" type="range" min="0" max="360" value="25"></label></div><div class="dialog-actions"><button id="cancelSolid">Cancelar</button><button id="insertSolid">Insertar sólido</button></div></dialog><dialog id="formula"><h2>Insertar fórmula</h2><textarea id="latex" rows="3">\frac{a^2+b^2}{c}=\sqrt{x}</textarea><div id="preview"></div><p class="subtle">Fórmula como imagen vectorial: podrás moverla y cambiar su tamaño.</p><div class="row"><button id="cancelMath">Cancelar</button><button id="insertMath">Colocar fórmula</button></div></dialog>
 <dialog id="tp20PdfDialog" class="tp20-pdf-dialog" aria-label="Importador de cuatro ejercicios por página">
 <div class="tp20-pdf-head"><strong>Importar PDF · 4 ejercicios por hoja</strong><button type="button" id="tp20PdfClose" aria-label="Cerrar">✕</button></div>
-<p class="tp20-pdf-help">Formato obligatorio: cuatro cajas completas por hoja, distribuidas 2 × 2 y sin encabezados fuera de la cuadrícula. Cada caja, incluido su gráfico, se insertará íntegra a la izquierda de una página nueva y quedará fijada con candado.</p>
+<p class="tp20-pdf-help">Detecta los bordes de las cuatro cajas reales por hoja, aunque haya portada o encabezados. Extrae cada caja con 0,5 cm de margen y la coloca íntegra a la izquierda, fijada con candado. Si una hoja no tiene cuatro cajas reconocibles, se omite.</p>
 <div id="tp20PdfStatus" role="status">Selecciona un PDF.</div>
 <div class="tp20-pdf-scroller" id="tp20PdfPreview"></div>
 <div class="tp20-pdf-footer"><span>Recorte estándar: 4 cajas completas (2 × 2)</span><span id="tp20PdfCount"></span><button type="button" id="tp20PdfCancel">Cancelar</button><button type="button" id="tp20PdfImport" disabled>Crear páginas</button></div>
@@ -492,50 +492,149 @@ async function tp20LoadPdfJs(){
  }).catch(e=>{window.tp20PdfScriptLoading=null;throw e})}
  const lib=await window.tp20PdfScriptLoading;lib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';return lib;
 }
-function tp20PdfCropCanvas(full,q){
- // Dividir exactamente en 2 columnas y 2 filas: preservar toda la caja, sin recortar bordes ni gráficos.
- const col=q%2,row=Math.floor(q/2);
- const x=Math.round(col*full.width/2),y=Math.round(row*full.height/2);
- const x2=Math.round((col+1)*full.width/2),y2=Math.round((row+1)*full.height/2);
- const w=x2-x,h=y2-y;
- const c=document.createElement('canvas');c.width=w;c.height=h;
+
+function tp20PdfDetectBoxes(full){
+ // Detectar cuatro rectángulos cerrados por sus bordes, no por las coordenadas de la hoja.
+ const W=full.width,H=full.height,px=full.getContext('2d',{willReadFrequently:true}).getImageData(0,0,W,H).data;
+ const ink=(x,y)=>{
+   const k=(y*W+x)*4,r=px[k],g=px[k+1],b=px[k+2];
+   return Math.min(r,g,b)<190 || (Math.max(r,g,b)-Math.min(r,g,b)>42&&Math.min(r,g,b)<236);
+ };
+ const lines=(horizontal)=>{
+   const outer=horizontal?H:W,inner=horizontal?W:H;
+   const min=inner*(horizontal?.21:.13),gap=5;
+   const raw=[];
+   for(let n=0;n<outer;n++){
+     let start=-1,last=-1,solid=0;
+     for(let k=0;k<=inner;k++){
+       const dark=k<inner&&(horizontal?ink(k,n):ink(n,k));
+       if(dark){if(start<0)start=k;last=k;solid++}
+       if(start>=0&&(!dark&&(k-last>gap)||k===inner)){
+         const length=last-start+1;
+         if(length>=min&&solid/length>.70)raw.push({axis:n,start,end:last,length,strength:solid/length});
+         start=-1;last=-1;solid=0;
+       }
+     }
+   }
+   // Agrupar los píxeles vecinos de una misma línea para tolerar grosor y antialiasing.
+   raw.sort((a,b)=>a.axis-b.axis);
+   const groups=[];
+   for(const l of raw){
+     let found=null;
+     for(let j=groups.length-1;j>=0;j--){
+       const g=groups[j];if(l.axis-g.last>6)break;
+       if(Math.abs(l.start-g.start)<Math.max(12,inner*.018)&&Math.abs(l.end-g.end)<Math.max(12,inner*.018)){found=g;break}
+     }
+     if(found){found.last=l.axis;found.axis=(found.axis*found.n+l.axis)/(found.n+1);found.start=(found.start*found.n+l.start)/(found.n+1);found.end=(found.end*found.n+l.end)/(found.n+1);found.n++}
+     else groups.push({axis:l.axis,last:l.axis,start:l.start,end:l.end,n:1});
+   }
+   return groups.filter(g=>g.n>=1).map(g=>({axis:Math.round(g.axis),start:Math.round(g.start),end:Math.round(g.end),n:g.n}));
+ };
+ const hs=lines(true),vs=lines(false),candidate=[];
+ const verticalScore=(x,y0,y1)=>{
+   let best=0;
+   for(const v of vs){
+     if(Math.abs(v.axis-x)>Math.max(12,W*.025))continue;
+     const overlap=Math.max(0,Math.min(y1,v.end)-Math.max(y0,v.start));
+     best=Math.max(best,overlap/(y1-y0));
+   }
+   return best;
+ };
+ for(const top of hs)for(const bottom of hs){
+   const height=bottom.axis-top.axis;
+   if(height<H*.105||height>H*.61)continue;
+   const width=((top.end-top.start)+(bottom.end-bottom.start))/2;
+   if(width<W*.22||width>W*.89)continue;
+   if(Math.abs(top.start-bottom.start)>W*.035||Math.abs(top.end-bottom.end)>W*.035)continue;
+   const x0=Math.round((top.start+bottom.start)/2),x1=Math.round((top.end+bottom.end)/2);
+   const left=verticalScore(x0,top.axis,bottom.axis),right=verticalScore(x1,top.axis,bottom.axis);
+   if(left<.76||right<.76)continue;
+   candidate.push({x:x0,y:top.axis,w:x1-x0,h:height,score:left+right+Math.min(1,top.n/2)+Math.min(1,bottom.n/2)});
+ }
+ candidate.sort((a,b)=>b.score-a.score);
+ const unique=[];
+ for(const c of candidate){
+   if(unique.some(o=>Math.abs(o.x-c.x)<W*.035&&Math.abs(o.y-c.y)<H*.035&&Math.abs(o.w-c.w)<W*.055&&Math.abs(o.h-c.h)<H*.055))continue;
+   unique.push(c);
+ }
+ const nonOverlap=(a,b)=>{
+   const ix=Math.max(0,Math.min(a.x+a.w,b.x+b.w)-Math.max(a.x,b.x));
+   const iy=Math.max(0,Math.min(a.y+a.h,b.y+b.h)-Math.max(a.y,b.y));
+   return ix*iy<Math.min(a.w*a.h,b.w*b.h)*.12;
+ };
+ // Buscar cuatro cajas no superpuestas de dimensiones semejantes.
+ const ordered=unique.slice(0,24).sort((a,b)=>b.w*b.h-a.w*a.h);
+ let best=null,bestScore=-Infinity;
+ function choose(chosen,at){
+   if(chosen.length===4){
+     const areas=chosen.map(z=>z.w*z.h),ratio=Math.max(...areas)/Math.min(...areas);
+     if(ratio>1.85)return;
+     const xs=chosen.map(z=>z.x+z.w/2),ys=chosen.map(z=>z.y+z.h/2);
+     const xSorted=xs.slice().sort((a,b)=>a-b),ySorted=ys.slice().sort((a,b)=>a-b);
+     // Dos columnas y dos filas bien definidas
+     if(xSorted[2]-xSorted[1]<W*.09||ySorted[2]-ySorted[1]<H*.075)return;
+     const score=chosen.reduce((t,z)=>t+z.score+z.w*z.h/(W*H)*8,0)-ratio;
+     if(score>bestScore){bestScore=score;best=chosen.slice()}return;
+   }
+   if(at>=ordered.length||ordered.length-at<4-chosen.length)return;
+   for(let i=at;i<ordered.length;i++){
+     const c=ordered[i];if(chosen.every(o=>nonOverlap(o,c)))choose([...chosen,c],i+1);
+   }
+ }
+ choose([],0);
+ return best?.sort((a,b)=>a.y+a.h/2-(b.y+b.h/2)||a.x-b.x)||[];
+}
+function tp20PdfCropCanvas(full,box,marginPx){
+ const x=Math.max(0,Math.floor(box.x-marginPx)),y=Math.max(0,Math.floor(box.y-marginPx));
+ const x2=Math.min(full.width,Math.ceil(box.x+box.w+marginPx));
+ const y2=Math.min(full.height,Math.ceil(box.y+box.h+marginPx));
+ const w=x2-x,h=y2-y,c=document.createElement('canvas');c.width=w;c.height=h;
  c.getContext('2d').drawImage(full,x,y,w,h,0,0,w,h);
  return{canvas:c,x,y,w,h};
 }
 async function tp20PdfRead(file){
- if(!file)return;if(!/\.pdf$/i.test(file.name)&&file.type!=='application/pdf'){tp20PdfMessage('Selecciona un archivo PDF válido.',true);return}
+ if(!file)return;
+ if(!/\.pdf$/i.test(file.name)&&file.type!=='application/pdf'){tp20PdfMessage('Selecciona un archivo PDF válido.',true);return}
  if(tp20PdfLoading||tp20PdfBusy)return;
- tp20PdfReset();const token=tp20PdfToken;tp20PdfLoading=true;tp20PdfDialog.showModal();tp20PdfMessage('Abriendo PDF…');
- let pdf=null;
+ tp20PdfReset();const token=tp20PdfToken;tp20PdfLoading=true;tp20PdfDialog.showModal();tp20PdfMessage('Buscando los bordes de las cajas…');
+ let pdf=null,skipped=[];
  try{
   const lib=await tp20LoadPdfJs();if(token!==tp20PdfToken)return;
-  const data=new Uint8Array(await file.arrayBuffer());pdf=await lib.getDocument({data}).promise;
-  if(pdf.numPages>40)throw Error('Se admiten hasta 40 hojas por importación (160 ejercicios). Divide el PDF en partes.');
-  if(pdf.numPages<1)throw Error('El PDF no contiene hojas.');
+  pdf=await lib.getDocument({data:new Uint8Array(await file.arrayBuffer())}).promise;
+  if(pdf.numPages>40)throw Error('Máximo 40 hojas por importación. Divide el PDF en partes.');
+  if(pdf.numPages<1)throw Error('El PDF está vacío.');
   for(let p=1;p<=pdf.numPages;p++){
    if(token!==tp20PdfToken)return;
-   tp20PdfMessage('Analizando hoja '+p+' de '+pdf.numPages+'…');
+   tp20PdfMessage('Detectando cajas en hoja '+p+' de '+pdf.numPages+'…');
    const page=await pdf.getPage(p),basic=page.getViewport({scale:1});
    const scale=Math.min(2.1,2600/Math.max(basic.width,basic.height));
    const viewport=page.getViewport({scale});
-   const full=document.createElement('canvas');full.width=Math.ceil(viewport.width);full.height=Math.ceil(viewport.height);
+   const full=document.createElement('canvas');
+   full.width=Math.ceil(viewport.width);full.height=Math.ceil(viewport.height);
    const g=full.getContext('2d',{alpha:false});g.fillStyle='#fff';g.fillRect(0,0,full.width,full.height);
    await page.render({canvasContext:g,viewport,background:'white'}).promise;
+   const boxes=tp20PdfDetectBoxes(full);
+   if(boxes.length!==4){skipped.push(p);page.cleanup();continue}
+   // 0.5 cm en unidades de PDF (72 pt por pulgada), escaladas al lienzo.
+   const marginPx=Math.max(1,Math.round(0.5/2.54*72*scale));
    for(let q=0;q<4;q++){
-    const crop=tp20PdfCropCanvas(full,q);
+    const crop=tp20PdfCropCanvas(full,boxes[q],marginPx);
     const src=crop.canvas.toDataURL('image/png'),item={src,page:p,quadrant:q};
     tp20PdfExercises.push(item);
     const card=document.createElement('div');card.className='tp20-pdf-item';
-    const label=document.createElement('span');label.className='tp20-pdf-number';label.textContent='Hoja '+p+' · Ejercicio '+(q+1);
-    const im=document.createElement('img');im.src=src;im.alt='Vista previa del ejercicio '+(q+1)+' de la hoja '+p;
+    const label=document.createElement('span');label.className='tp20-pdf-number';label.textContent='Hoja '+p+' · Caja '+(q+1);
+    const im=document.createElement('img');im.src=src;im.alt='Caja '+(q+1)+' completa de la hoja '+p;
     card.append(label,im);tp20PdfPreview.append(card);
    }
    page.cleanup();await new Promise(resolve=>setTimeout(resolve,0));
   }
-  tp20PdfMessage('Las cuatro cajas completas de cada hoja están listas. Verifica las vistas previas antes de crear las páginas.');
+  if(!tp20PdfExercises.length)throw Error('No se encontraron cuatro cajas cerradas con bordes visibles en ninguna hoja. Comprueba que el PDF tenga los recuadros dibujados.');
+  if(skipped.length){
+   tp20PdfMessage('Detectadas '+tp20PdfExercises.length+' cajas. Hojas omitidas por no mostrar 4 cajas reconocibles: '+skipped.join(', ')+'. Revisa las vistas previas.',false);
+  }else tp20PdfMessage('Detectadas las cajas reales (más 0.5 cm de margen). Revisa las vistas previas antes de crear páginas.');
   $('tp20PdfCount').textContent=tp20PdfExercises.length+' páginas nuevas';
   tp20PdfImport.disabled=false;
- }catch(err){if(token===tp20PdfToken){tp20PdfMessage('No se pudo leer el PDF: '+(err?.message||err),true);tp20PdfImport.disabled=true;}}
+ }catch(err){if(token===tp20PdfToken){tp20PdfMessage('No se pudo preparar el PDF: '+(err?.message||err),true);tp20PdfImport.disabled=true;}}
  finally{if(pdf)try{await pdf.destroy()}catch{}if(token===tp20PdfToken)tp20PdfLoading=false}
 }
 tp20PdfInput.addEventListener('change',e=>{const f=e.target.files?.[0];if(f)tp20PdfRead(f)});
