@@ -54,7 +54,7 @@ body .brand h1{font-size:21px}body .brand h1 span{font-size:11px;letter-spacing:
 <label class="control">Suavidad <output id="smoothValue">75%</output></label><input id="smooth" class="slider" aria-label="Suavidad" type="range" min="0" max="100" value="75">
 <div class="section-title">Color</div><div class="two paint-targets"><button id="strokeTarget" class="active">Trazo</button><button id="fillTarget">Relleno</button></div><div id="palette"></div>
 <div id="fillControls"><label class="control"><span><input id="fillEnabled" type="checkbox"> Rellenar figura</span></label><label class="control">Opacidad relleno <output id="fillValue">25%</output></label><input id="fillOpacity" class="slider" aria-label="Opacidad del relleno" type="range" min="0" max="100" value="25"></div>
-<button id="smartGuides" title="Guías inteligentes · Ctrl + Shift + 2">✣ Guías inteligentes</button><button id="nodeToggle" title="Activar nodos magnéticos · Ctrl + 2">◉ Nodos · Ctrl 2</button><div id="penOptions"><label title="Cierra al colocar el último punto a menos de 14 píxeles del primer nodo"><input id="penMagnet" type="checkbox" checked>Imán de cierre · pluma</label><label class="control" for="mainPenDash">Trazo de pluma <select id="mainPenDash" class="tp20-pen-dash-selector" aria-label="Estilo de trazo de pluma"><option value="dotted">Punteado ···</option><option value="dashdot">Raya-punto — · — ·</option></select></label></div><div id="polygonOptions"><label class="control" for="polyPreset">Polígono regular <select id="polyPreset" aria-label="Elegir polígono regular"><option value="3">Triángulo equilátero (3)</option><option value="4">Cuadrado (4)</option><option value="5">Pentágono (5)</option><option value="6" selected>Hexágono (6)</option><option value="7">Heptágono (7)</option><option value="8">Octágono (8)</option><option value="9">Eneágono (9)</option><option value="10">Decágono (10)</option><option value="12">Dodecágono (12)</option><option value="custom">Personalizado</option></select></label><label class="control" for="polySides">Número de lados <input id="polySides" type="number" min="3" max="100" step="1" value="6"></label><span class="subtle">3 a 100 lados · cambia antes de dibujar o con el objeto seleccionado</span></div></div>
+<button id="smartGuides" title="Guías inteligentes · Ctrl + Shift + 2">✣ Guías inteligentes</button><button id="nodeToggle" title="Activar nodos magnéticos · Ctrl + 2">◉ Nodos · Ctrl 2</button><div id="penOptions"><label title="Cierra al colocar el último punto a menos de 14 píxeles del primer nodo"><input id="penMagnet" type="checkbox" checked>Imán de cierre · pluma</label><label class="control" for="mainPenDash">Trazo de pluma <select id="mainPenDash" class="tp20-pen-dash-selector" aria-label="Estilo de trazo de pluma"><option value="solid">Continua ━━━</option><option value="dotted">Punteado ···</option><option value="dashdot">Raya-punto — · — ·</option></select></label></div><div id="polygonOptions"><label class="control" for="polyPreset">Polígono regular <select id="polyPreset" aria-label="Elegir polígono regular"><option value="3">Triángulo equilátero (3)</option><option value="4">Cuadrado (4)</option><option value="5">Pentágono (5)</option><option value="6" selected>Hexágono (6)</option><option value="7">Heptágono (7)</option><option value="8">Octágono (8)</option><option value="9">Eneágono (9)</option><option value="10">Decágono (10)</option><option value="12">Dodecágono (12)</option><option value="custom">Personalizado</option></select></label><label class="control" for="polySides">Número de lados <input id="polySides" type="number" min="3" max="100" step="1" value="6"></label><span class="subtle">3 a 100 lados · cambia antes de dibujar o con el objeto seleccionado</span></div></div>
 <div class="section-title">Movimiento de objetos</div>
 <div id="motionPanel" style="padding:9px 7px;border:1px solid #64748b66;border-radius:12px;margin:6px 0 12px;display:grid;gap:8px">
  <div class="two"><button id="motionSelect" title="Selecciona varios objetos con Shift + clic, luego agrúpalos">↖ Seleccionar</button><button id="motionGroup" title="Agrupar objetos seleccionados (Ctrl + G)">▣ Agrupar</button></div>
@@ -116,8 +116,8 @@ function motionGo(){
 function motionReset(){stopMotion();if(trajectoryBase){for(const {index,object} of trajectoryBase)if(scene[index])scene[index]=object;trajectoryBase=null;render();context()}motionInfo(trajectory?'Listo para reproducir nuevamente.':'Selecciona un grupo y define su trayectoria.')}
 
 let selected=-1, smoothness=75, transform=null, shiftDown=false, thumbnailTimer=null;
-let fillEnabled=false,fillColor=4,fillOpacity=.25,paintTarget='stroke',polygonSides=6,styleGesture=false,penDash='dotted';
-document.addEventListener('tp20-pen-dash',e=>{if(!['dotted','dashdot'].includes(e.detail))return;penDash=e.detail;document.querySelectorAll('.tp20-pen-dash-selector').forEach(el=>{if(el.value!==penDash)el.value=penDash});if(pen){pen.dash=penDash;render()}if(selected>=0&&scene[selected]?.type==='pen'){checkpoint();scene[selected]={...scene[selected],dash:penDash};render()}});
+let fillEnabled=false,fillColor=4,fillOpacity=.25,paintTarget='stroke',polygonSides=6,styleGesture=false,penDash='solid';
+document.addEventListener('tp20-pen-dash',e=>{if(!['solid','dotted','dashdot'].includes(e.detail))return;penDash=e.detail;document.querySelectorAll('.tp20-pen-dash-selector').forEach(el=>{if(el.value!==penDash)el.value=penDash});if(pen){pen.dash=penDash;render()}if(selected>=0&&scene[selected]?.type==='pen'){checkpoint();scene[selected]={...scene[selected],dash:penDash};render()}});
 let zoom=1,fitScale=1,panX=0,panY=0,spaceDown=false,handMode=false,panning=null,magnetHover=false;
 let smartGuidesEnabled=false,guideLines=[],nodeSnapEnabled=false,nodeHover=null,continuousMode=false,autoFit=true,viewLeft=0,viewTop=0,viewScale=1;
 const PAGE_W=1600,PAGE_H=900;let pageIndex=0,pages=[{scene:[],history:[],theme:'dark',grid:false,dots:false,spacing:40,thumb:null}],exporting=false;
@@ -1250,7 +1250,7 @@ if(!workspace||!source||!math)return;
 const panel=document.createElement('section');
 panel.id='tp20QuickTools';
 panel.setAttribute('aria-label','Paleta flotante y fórmulas LaTeX');
-panel.innerHTML='<div class="tp20-head"><span>🎨</span><button type="button" class="tp20-minimize" title="Minimizar paleta">−</button></div><div class="tp20-body"><div class="tp20-actions"><button type="button" class="tp20-pen" title="Pincel suave">✎ Pincel</button><button type="button" class="tp20-vector-pen" title="Pluma: polígonos, rectas y curvas Bézier">⌁ Pluma</button></div><div class="tp20-actions"><label class="tp20-brush-label" for="tp20PenDash">Pluma</label><select id="tp20PenDash" class="tp20-pen-dash-selector" aria-label="Tipo de línea de la pluma" title="Estilo del trazo de pluma"><option value="dotted">Punteado ···</option><option value="dashdot">Raya-punto — · — ·</option></select></div><div class="tp20-actions"><label class="tp20-brush-label" for="tp20BrushWidth">Grosor</label><input id="tp20BrushWidth" type="range" min="1" max="36" step="1" value="5" aria-label="Grosor del pincel y la pluma"><output id="tp20BrushValue">5</output></div><div class="tp20-actions"><button type="button" class="tp20-stroke" title="Color del contorno">Contorno</button><button type="button" class="tp20-fill" title="Color del relleno">Relleno</button></div><div class="tp20-grid"></div><div class="tp20-actions tp20-secondary"><button type="button" class="tp20-enable-fill" title="Activar o desactivar relleno">▣ Rellenar</button><button type="button" class="tp20-latex">ƒ LaTeX</button></div></div>';
+panel.innerHTML='<div class="tp20-head"><span>🎨</span><button type="button" class="tp20-minimize" title="Minimizar paleta">−</button></div><div class="tp20-body"><div class="tp20-actions"><button type="button" class="tp20-pen" title="Pincel suave">✎ Pincel</button><button type="button" class="tp20-vector-pen" title="Pluma: polígonos, rectas y curvas Bézier">⌁ Pluma</button></div><div class="tp20-actions"><label class="tp20-brush-label" for="tp20PenDash">Pluma</label><select id="tp20PenDash" class="tp20-pen-dash-selector" aria-label="Tipo de línea de la pluma" title="Estilo del trazo de pluma"><option value="solid">Continua ━━━</option><option value="dotted">Punteado ···</option><option value="dashdot">Raya-punto — · — ·</option></select></div><div class="tp20-actions"><label class="tp20-brush-label" for="tp20BrushWidth">Grosor</label><input id="tp20BrushWidth" type="range" min="1" max="36" step="1" value="5" aria-label="Grosor del pincel y la pluma"><output id="tp20BrushValue">5</output></div><div class="tp20-actions"><button type="button" class="tp20-stroke" title="Color del contorno">Contorno</button><button type="button" class="tp20-fill" title="Color del relleno">Relleno</button></div><div class="tp20-grid"></div><div class="tp20-actions tp20-secondary"><button type="button" class="tp20-enable-fill" title="Activar o desactivar relleno">▣ Rellenar</button><button type="button" class="tp20-latex">ƒ LaTeX</button></div></div>';
 workspace.append(panel);
 const access=document.createElement('button');access.type='button';access.id='tp20QuickAccess';access.textContent='🎨 Colores · ƒ LaTeX';access.title='Mostrar paleta flotante';workspace.append(access);
 const grid=panel.querySelector('.tp20-grid');
@@ -1412,5 +1412,40 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
 #leftRail #width,#leftRail #smooth{height:17px}
 #leftRail #penOptions,#leftRail #polygonOptions{display:none!important}
 @media(max-width:760px){#leftRail .tool-grid{grid-template-columns:repeat(3,minmax(0,1fr))}#tp20ToolSubmenu{width:240px}}
+</style>
+
+<style id="tp20-metal-theme">
+/* Theme exclusively styles interface controls; original drawing color palettes remain vivid. */
+body{--line:#474951!important;--muted:#d0d2d8!important;--accent:#e3e5ec!important;color:#f5f6f8!important;background:#090a0c!important}
+#leftRail,#rightRail{background:linear-gradient(115deg,#55575c 0%,#2d2f34 3%,#1c1d21 26%,#101114 72%,#33353a 98%,#17181b)!important;border-color:#62656e!important;color:#fff!important;box-shadow:inset 1px 0 #ffffff20,inset -1px 0 #000b,0 0 20px #0008!important}
+#workspace{background:radial-gradient(ellipse at center,#292a2e,#141518 62%,#07080a 100%)!important}
+.brand,.brand h1,.brand h1 span,.brand small,.section-title,.right-title,#pageInfo{color:#f5f6fa!important;border-color:#53545c!important}
+#leftRail button:not(.swatch),#rightRail button,#viewTools button,#tp20ToolSubmenu button,#tp20QuickTools button:not([style*="background"]),#leftRail select,#rightRail select,#tp20ToolSubmenu select,#tp20QuickTools select,#leftRail .filebtn,#rightRail .filebtn{
+background:linear-gradient(157deg,#777981 0%,#4c4e55 8%,#303239 38%,#1b1c21 88%,#373940 100%)!important;
+border:1px solid #858892!important;border-bottom-color:#101115!important;border-radius:8px!important;color:#fafaff!important;
+text-shadow:0 1px 2px #0009!important;box-shadow:inset 0 1px 1px #ffffff3b,inset 0 -2px 1px #0007,0 2px 6px #0007!important;
+transition:filter .13s,border-color .13s,box-shadow .13s!important
+}
+#leftRail button:not(.swatch):hover,#rightRail button:hover,#viewTools button:hover,#tp20ToolSubmenu button:hover,#leftRail .filebtn:hover{filter:brightness(1.25)!important;border-color:#e7e9ee!important}
+#leftRail button.active:not(.swatch),#rightRail button.active,#viewTools button.active,#tp20QuickTools button.active{
+background:linear-gradient(145deg,#979aa2,#575a62 20%,#34363d 70%,#222329)!important;border-color:#f1f2f6!important;color:#fff!important;
+box-shadow:inset 0 1px 1px #ffffffa0,inset 0 -2px 2px #0009,0 0 0 1px #aeb2bc55,0 2px 8px #0009!important
+}
+#leftRail button:disabled,#rightRail button:disabled,#viewTools button:disabled{opacity:.4!important}
+#tp20ToolSubmenu,#tp20QuickTools{background:linear-gradient(145deg,#5b5d63,#24252a 12%,#101115 95%)!important;border-color:#989ba5!important;color:#f9f9fc!important;box-shadow:inset 0 1px #ffffff44,0 15px 38px #000c!important}
+.tp20-subtitle,.tp20-subtrigger,#tp20ExtraDock summary,.tp20-insert-dock summary,.tp20-open-page{color:#fff!important}
+.tp20-subtrigger{background:linear-gradient(145deg,#858790,#292b31)!important;border:1px solid #b3b6c1!important;border-radius:4px!important;box-shadow:inset 0 1px #ffffff6b,0 1px 3px #0008!important}
+#tp20ExtraDock,.tp20-insert-dock,#settings,#motionPanel,#context,.object-colors-panel{background:linear-gradient(140deg,#383a40,#191a1e)!important;border-color:#62656e!important;color:#fff!important}
+#tp20QuickAccess{background:linear-gradient(140deg,#858790,#292b31)!important;border-color:#a8abb5!important;color:#fff!important}
+#leftRail #palette .swatch{width:18px!important;height:18px!important;border:1px solid #b8bdc6!important;border-radius:3px!important;padding:0!important;box-shadow:0 1px 3px #000a!important}
+#leftRail #palette .swatch.active{outline:2px solid #fff!important;outline-offset:2px!important}
+#tp20QuickTools .tp20-grid button{border-radius:3px!important}
+#rightRail #pages button,#continuousPages .page-card{background:linear-gradient(145deg,#393b41,#1a1b1f)!important;border-color:#757880!important}
+#rightRail #pages button.active,#continuousPages .page-card.active{border-color:#e8eaf0!important}
+#continuousPages .page-card:hover{border-color:#fff!important;box-shadow:0 0 0 2px #e8ebf455,0 8px 28px #0008!important}
+#continuousPages .continuous-note,#zoomHint{color:#f2f2f5!important}
+#tp20AutoSaveStatus{color:#fff!important;background:#2d2f35!important;border-color:#787b85!important}
+#leftRail input,#rightRail input{accent-color:#ced2dc!important}
+#leftRail button:focus-visible,#rightRail button:focus-visible,#viewTools button:focus-visible{outline:2px solid #fff!important;outline-offset:2px!important}
 </style>
 </body></html>
