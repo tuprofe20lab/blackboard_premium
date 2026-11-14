@@ -41,7 +41,21 @@ body .brand h1{font-size:21px}body .brand h1 span{font-size:11px;letter-spacing:
 <style>
 #motionKind{width:100%;background:var(--panel,#1e293b);color:inherit;border:1px solid #64748b;border-radius:8px;padding:7px}
 #precisionTools button,#projectSave{min-height:38px}#precisionInfo{font-size:11px;line-height:1.35}#motionBend{width:100%}
-#precisionTools button.active{background:#087b80!important;color:#fff!important;border-color:#21efd5!important;box-shadow:0 0 0 2px #21efd544!important}.tp-colors{padding:9px;border:1px solid #64748b66;border-radius:10px;margin-bottom:12px;display:grid;gap:7px}.tp-colors label{display:flex;justify-content:space-between;align-items:center;gap:12px;font-size:12px}.tp-colors input[type=color],.object-colors-panel input[type=color]{width:47px;height:34px;cursor:pointer;border:1px solid #64748b;border-radius:7px;padding:2px;background:transparent}.object-colors-panel{padding:7px;border:1px solid #64748b;border-radius:8px;display:flex;gap:12px;flex-wrap:wrap}.object-color-label{display:flex;gap:6px;align-items:center}</style><style id="tp20-page-delete-style">#pages .tp20-page-thumb-wrap{position:relative;flex:0 0 auto;width:100%;min-width:0}#pages .tp20-page-thumb{width:100%;padding-right:26px!important}#pages .tp20-delete-page{position:absolute;top:5px;right:5px;z-index:2;width:23px;height:23px;min-height:23px;padding:0;display:flex;align-items:center;justify-content:center;border:1px solid #ad6673;background:#49222b;color:#fff;border-radius:5px;font-size:15px;line-height:1;cursor:pointer}#pages .tp20-delete-page:hover{background:#a53147}#pages .tp20-delete-page:disabled{opacity:.3;cursor:not-allowed}</style></head><body>
+#precisionTools button.active{background:#087b80!important;color:#fff!important;border-color:#21efd5!important;box-shadow:0 0 0 2px #21efd544!important}.tp-colors{padding:9px;border:1px solid #64748b66;border-radius:10px;margin-bottom:12px;display:grid;gap:7px}.tp-colors label{display:flex;justify-content:space-between;align-items:center;gap:12px;font-size:12px}.tp-colors input[type=color],.object-colors-panel input[type=color]{width:47px;height:34px;cursor:pointer;border:1px solid #64748b;border-radius:7px;padding:2px;background:transparent}.object-colors-panel{padding:7px;border:1px solid #64748b;border-radius:8px;display:flex;gap:12px;flex-wrap:wrap}.object-color-label{display:flex;gap:6px;align-items:center}</style><style id="tp20-page-delete-style">#pages .tp20-page-thumb-wrap{position:relative;flex:0 0 auto;width:100%;min-width:0}#pages .tp20-page-thumb{width:100%;padding-right:26px!important}#pages .tp20-delete-page{position:absolute;top:5px;right:5px;z-index:2;width:23px;height:23px;min-height:23px;padding:0;display:flex;align-items:center;justify-content:center;border:1px solid #ad6673;background:#49222b;color:#fff;border-radius:5px;font-size:15px;line-height:1;cursor:pointer}#pages .tp20-delete-page:hover{background:#a53147}#pages .tp20-delete-page:disabled{opacity:.3;cursor:not-allowed}</style><style id="tp20-pdf-import-css">
+.tp20-pdf-dialog{width:min(930px,95vw);max-height:91vh;padding:0;border:1px solid #58657f;border-radius:14px;background:#141c2b;color:#f5f8ff;box-shadow:0 25px 85px #0009;font:13px system-ui,sans-serif}
+.tp20-pdf-dialog::backdrop{background:#020711b8}.tp20-pdf-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:15px 18px;border-bottom:1px solid #35435b;background:#1c2638}.tp20-pdf-head strong{font-size:16px}.tp20-pdf-help{margin:12px 18px;line-height:1.5;color:#b6c9df}
+#tp20PdfStatus{margin:8px 18px;color:#87eedc;font-weight:650}#tp20PdfStatus.error{color:#ff879b}
+.tp20-pdf-scroller{overflow:auto;max-height:57vh;padding:8px 18px;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.tp20-pdf-item{background:#253249;border:1px solid #425371;border-radius:8px;min-width:0;padding:7px}
+.tp20-pdf-item img{width:100%;height:140px;object-fit:contain;background:white;border-radius:4px;display:block}
+.tp20-pdf-item label{display:flex;gap:5px;align-items:center;justify-content:center;margin-top:7px;font-size:11px;cursor:pointer}
+.tp20-pdf-number{font-size:11px;margin-bottom:5px;display:block;color:#dce9f8;font-weight:650}
+.tp20-pdf-footer{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:12px 18px;border-top:1px solid #35435b}
+.tp20-pdf-footer label{display:flex;gap:5px;align-items:center;margin-right:auto;font-size:12px}
+.tp20-pdf-footer button,.tp20-pdf-head button{background:#283852;border:1px solid #697d99;color:white;border-radius:6px;padding:7px 12px;cursor:pointer}
+#tp20PdfImport{background:#167e85;border-color:#40c9c0;font-weight:700}#tp20PdfImport:disabled{opacity:.45;cursor:wait}
+@media(max-width:650px){.tp20-pdf-scroller{grid-template-columns:repeat(2,minmax(0,1fr))}.tp20-pdf-item img{height:110px}}
+</style></head><body>
 <aside id="leftRail" class="rail" aria-label="Herramientas">
 <div class="brand"><h1>TuProfe20<span>LAB · PIZARRA PREMIUM</span></h1><small>ESTUDIO DIGITAL DE MATEMÁTICA</small></div>
 <div class="section-title">Herramientas · esquina ▾ para opciones</div><div id="toolbar"><div class="tool-grid">
@@ -69,7 +83,7 @@ body .brand h1{font-size:21px}body .brand h1 span{font-size:11px;letter-spacing:
 <div class="subtle" id="precisionInfo">Regla: mide una longitud. Compás: traza una circunferencia. Transportador: mide un ángulo con tres clics.</div><label class="control" for="precisionScale">Escala de medición (unidades de hoja por cm)</label><input id="precisionScale" type="number" min="1" max="1000" value="40" step="1" style="width:100%;background:var(--panel,#1e293b);color:inherit;border:1px solid #64748b;border-radius:8px;padding:7px"/><div class="subtle">La escala es configurable; las medidas son relativas a la hoja, no a la pantalla física.</div>
 <div class="section-title">Proyecto editable</div><div class="two"><button id="projectSave">⬇ Guardar proyecto</button><label class="filebtn" style="text-align:center;cursor:pointer">⬆ Abrir proyecto<input id="projectOpen" type="file" accept=".json,.tp20" hidden></label></div>
 <div id="context" aria-label="Objeto seleccionado"></div>
-<div class="section-title">Insertar</div><div class="insert-grid"><button id="math">ƒ Fórmula LaTeX</button><label class="filebtn">+ Cargar imagen<input id="file" type="file" accept="image/*" hidden></label><button id="paste">Pegar imagen</button><button id="solidLibrary">⬡ Sólidos 3D</button><button id="extrudePolygon" title="Convierte un polígono regular seleccionado en un prisma 3D">▱ Polígono → prisma</button></div>
+<div class="section-title">Insertar</div><div class="insert-grid"><button id="math">ƒ Fórmula LaTeX</button><label class="filebtn">+ Cargar imagen<input id="file" type="file" accept="image/*" hidden></label><button id="paste">Pegar imagen</button><label class="filebtn" title="Separar PDF en cuatro ejercicios por hoja">▦ Importar PDF × 4<input id="tp20PdfFile" type="file" accept="application/pdf,.pdf" hidden></label><button id="solidLibrary">⬡ Sólidos 3D</button><button id="extrudePolygon" title="Convierte un polígono regular seleccionado en un prisma 3D">▱ Polígono → prisma</button></div>
 </aside>
 <main id="workspace"><canvas id="board" aria-label="Pizarra para dibujar"></canvas><div id="continuousPages" aria-label="Páginas consecutivas"></div><div id="viewTools"><button id="toggleTools" title="Mostrar u ocultar paneles">Paneles</button><button id="togglePages" title="Mostrar páginas">Páginas</button><div id="zoomControls" aria-label="Zoom de la pizarra"><button id="zoomOut" title="Alejar">−</button><output id="zoomValue">100%</output><button id="zoomIn" title="Acercar">+</button><button id="zoomFit" title="Ajustar toda la página sin cambiar sus dimensiones">Ajustar</button><button id="fixPage" title="Volver a la hoja centrada con los paneles visibles">📌 Fijar página</button><button id="panToggle" title="Activar mano para desplazar la vista">Mano</button></div><button id="focusView" title="Ocultar todos los paneles · Tab">Ampliar ↗</button></div><div id="zoomHint">Ctrl + rueda: zoom de hoja · Shift: trazos de 0°, 45° y 90° · Espacio + arrastrar: desplazar</div></main>
 <aside id="rightRail" class="rail" aria-label="Páginas y pizarra"><div class="right-title">PÁGINAS <span id="pageInfo">1 / 1</span></div><div class="page-nav"><button id="prevPage" title="Página anterior">‹</button><button id="nextPage" title="Página siguiente">›</button></div><button id="addPage">+ Página</button><button id="viewMode">▤ Ver todas las páginas</button><div id="pages"></div><button id="exportPdf">↓ Descargar PDF</button>
@@ -78,6 +92,13 @@ body .brand h1{font-size:21px}body .brand h1 span{font-size:11px;letter-spacing:
 <div id="busy" role="status" aria-live="polite"><div class="card"><h2>Preparando tu PDF</h2><p id="exportProgress">Exportando todas las páginas…</p></div></div>
 <dialog id="exportOptions"><h2>Descargar todas las páginas</h2><p>Se incluye la pizarra completa: dibujos, figuras, imágenes, fórmulas y patrones. Cada página conserva su proporción.</p><label for="pdfName">Nombre del archivo</label><input id="pdfName" type="text" maxlength="100" placeholder="Ej.: Aritmética quinto de secundaria" value="TuProfe20 Blackboard" autocomplete="off"><span class="subtle">La fecha y hora se añaden automáticamente (hora de Perú).</span><output id="filenamePreview"></output><label for="pdfTheme">Fondo del PDF</label><select id="pdfTheme"><option value="original">Conservar el fondo de cada página</option><option value="light">Todas en pizarra blanca</option><option value="dark">Todas en pizarra negra</option></select><p class="subtle">El color de los trazos se adapta al fondo elegido. Las fotografías conservan sus colores.</p><div class="row"><button id="cancelExport">Cancelar</button><button id="startExport">↓ Descargar PDF</button></div></dialog>
 <dialog id="solidsDialog"><h2>Biblioteca de sólidos geométricos · TuProfe20</h2><p class="subtle">Inserta sólidos 3D esquemáticos y editables. El tamaño de la página permanece fijo. Selecciona el sólido para girarlo o modificar ancho y alto por separado.</p><div class="solid-options"><label>Figura <select id="solidKind"><option value="prism">Prisma</option><option value="pyramid">Pirámide</option><option value="sphere">Esfera</option><option value="cylinder">Cilindro</option><option value="cone">Cono</option></select></label><label>Polígono de la base <select id="solidSides"><option value="3">Triángulo</option><option value="4" selected>Cuadrado</option><option value="5">Pentágono</option><option value="6">Hexágono</option><option value="7">Heptágono</option><option value="8">Octágono</option><option value="10">Decágono</option><option value="12">Dodecágono</option></select></label><label>Altura visual <input id="solidHeight" type="range" min="30" max="100" value="70"></label><label>Giro de la base <input id="solidRotation" type="range" min="0" max="360" value="25"></label></div><div class="dialog-actions"><button id="cancelSolid">Cancelar</button><button id="insertSolid">Insertar sólido</button></div></dialog><dialog id="formula"><h2>Insertar fórmula</h2><textarea id="latex" rows="3">\frac{a^2+b^2}{c}=\sqrt{x}</textarea><div id="preview"></div><p class="subtle">Fórmula como imagen vectorial: podrás moverla y cambiar su tamaño.</p><div class="row"><button id="cancelMath">Cancelar</button><button id="insertMath">Colocar fórmula</button></div></dialog>
+<dialog id="tp20PdfDialog" class="tp20-pdf-dialog" aria-label="Importador de cuatro ejercicios por página">
+<div class="tp20-pdf-head"><strong>Importar PDF · 4 ejercicios por hoja</strong><button type="button" id="tp20PdfClose" aria-label="Cerrar">✕</button></div>
+<p class="tp20-pdf-help">Cada hoja debe tener 4 cajas en una cuadrícula 2 × 2. Revisa los recortes y señala los ejercicios con gráfico. Cada ejercicio se colocará en una página independiente, con candado.</p>
+<div id="tp20PdfStatus" role="status">Selecciona un PDF.</div>
+<div class="tp20-pdf-scroller" id="tp20PdfPreview"></div>
+<div class="tp20-pdf-footer"><label><input type="checkbox" id="tp20PdfIgnoreBorders" checked> Recortar márgenes de las cajas</label><span id="tp20PdfCount"></span><button type="button" id="tp20PdfCancel">Cancelar</button><button type="button" id="tp20PdfImport" disabled>Crear páginas</button></div>
+</dialog>
 <script>
 'use strict';
 const $=id=>document.getElementById(id), board=$('board'), ctx=board.getContext('2d'), ink=document.createElement('canvas'), ictx=ink.getContext('2d');
@@ -451,6 +472,121 @@ function deletePage(i){if(exporting||pointer!==null||i<0||i>=pages.length)return
 function goPage(i){clearTrajectory();if(exporting||i<0||i>=pages.length||i===pageIndex||!settleDrafts())return;saveCurrent();pageIndex=i;const p=pages[i];scene=p.scene;history=p.history;theme=p.theme;$('grid').checked=p.grid;$('dots').checked=p.dots;$('spacing').value=p.spacing;for(const m of ['dark','light'])$(m).classList.toggle('active',m===theme);palette();context();refreshPages();fitView();render();say('Página '+(i+1)+' de '+pages.length+'. Cada página conserva sus dibujos y su fondo.');if(continuousMode){buildContinuous();$('continuous-page-'+i)?.scrollIntoView({block:'start'})}}
 $('addPage').onclick=()=>{if(exporting||!settleDrafts())return;saveCurrent();pages.push({scene:[],history:[],theme,grid:$('grid').checked,dots:$('dots').checked,spacing:+$('spacing').value,thumb:null});goPage(pages.length-1);$('pages').lastElementChild?.scrollIntoView({block:'nearest',inline:'nearest'})};
 $('prevPage').onclick=()=>goPage(pageIndex-1);$('nextPage').onclick=()=>goPage(pageIndex+1);
+
+// TuProfe20: importa una ficha PDF de cuatro cajas (dos columnas x dos filas).
+// Los recortes se renderizan localmente mediante PDF.js; no se sube el archivo a ningún servidor.
+const tp20PdfInput=$('tp20PdfFile'),tp20PdfDialog=$('tp20PdfDialog'),tp20PdfStatus=$('tp20PdfStatus'),tp20PdfPreview=$('tp20PdfPreview'),tp20PdfImport=$('tp20PdfImport');
+let tp20PdfExercises=[],tp20PdfLoading=false,tp20PdfBusy=false,tp20PdfToken=0;
+function tp20PdfMessage(msg,error=false){tp20PdfStatus.textContent=msg;tp20PdfStatus.classList.toggle('error',error)}
+function tp20PdfReset(){tp20PdfToken++;tp20PdfExercises=[];tp20PdfLoading=false;tp20PdfBusy=false;tp20PdfPreview.replaceChildren();tp20PdfImport.disabled=true;$('tp20PdfCount').textContent='';tp20PdfInput.value=''}
+function tp20PdfClose(){if(tp20PdfBusy)return;tp20PdfReset();tp20PdfDialog.close()}
+$('tp20PdfClose').onclick=tp20PdfClose;$('tp20PdfCancel').onclick=tp20PdfClose;
+tp20PdfDialog.addEventListener('cancel',e=>{if(tp20PdfBusy){e.preventDefault();return}tp20PdfReset()});
+async function tp20LoadPdfJs(){
+ if(window.pdfjsLib)return window.pdfjsLib;
+ if(!window.tp20PdfScriptLoading){window.tp20PdfScriptLoading=new Promise((resolve,reject)=>{
+ const script=document.createElement('script');script.src='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+ script.onload=()=>window.pdfjsLib?resolve(window.pdfjsLib):reject(Error('PDF.js no disponible'));
+ script.onerror=()=>reject(Error('No se pudo cargar PDF.js. Comprueba la conexión a Internet.'));
+ document.head.appendChild(script);
+ }).catch(e=>{window.tp20PdfScriptLoading=null;throw e})}
+ const lib=await window.tp20PdfScriptLoading;lib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';return lib;
+}
+function tp20PdfCropCanvas(full,q,trim){
+ const sw=full.width/2,sh=full.height/2,col=q%2,row=Math.floor(q/2);
+ const mx=trim?Math.round(sw*.027):0,my=trim?Math.round(sh*.025):0;
+ const x=Math.floor(col*sw+mx),y=Math.floor(row*sh+my),w=Math.max(10,Math.floor(sw-2*mx)),h=Math.max(10,Math.floor(sh-2*my));
+ const c=document.createElement('canvas');c.width=w;c.height=h;c.getContext('2d').drawImage(full,x,y,w,h,0,0,w,h);
+ return{canvas:c,x,y,w,h};
+}
+function tp20PdfTextMask(pageText,viewport,crop){
+ const c=document.createElement('canvas');c.width=crop.w;c.height=crop.h;
+ const g=c.getContext('2d');g.fillStyle='#fff';g.fillRect(0,0,c.width,c.height);g.fillStyle='#000';
+ for(const t of pageText.items||[]){
+  if(!t.str?.trim())continue;
+  const p=window.pdfjsLib.Util.transform(viewport.transform,t.transform),height=Math.max(7,Math.abs(p[3])||Math.hypot(p[2],p[3])),width=Math.max(3,(t.width||5)*viewport.scale);
+  g.fillRect(p[4]-crop.x-6,p[5]-crop.y-height*1.3-5,width+12,height*1.8+10);
+ }
+ return c;
+}
+function tp20PdfHasGraphic(crop,textMask,hasText){
+ if(!hasText)return true; // escaneos: no se puede distinguir texto de dibujo, conservar bloque amplio
+ const a=crop.canvas.getContext('2d',{willReadFrequently:true}).getImageData(0,0,crop.w,crop.h).data;
+ const b=textMask.getContext('2d',{willReadFrequently:true}).getImageData(0,0,crop.w,crop.h).data;
+ let nonText=0,count=0;
+ const step=Math.max(2,Math.round(crop.w/410));
+ for(let y=Math.round(crop.h*.12);y<crop.h*.93;y+=step)for(let x=Math.round(crop.w*.08);x<crop.w*.94;x+=step){
+  const i=(y*crop.w+x)*4;if(b[i]<100)continue;
+  if(a[i]<165&&a[i+1]<165&&a[i+2]<165)nonText++;
+  count++;
+ }
+ return count>0&&nonText/count>.008;
+}
+async function tp20PdfRead(file){
+ if(!file)return;if(!/\.pdf$/i.test(file.name)&&file.type!=='application/pdf'){tp20PdfMessage('Selecciona un archivo PDF válido.',true);return}
+ if(tp20PdfLoading||tp20PdfBusy)return;
+ tp20PdfReset();const token=tp20PdfToken;tp20PdfLoading=true;tp20PdfDialog.showModal();tp20PdfMessage('Abriendo PDF…');
+ let pdf=null;
+ try{
+  const lib=await tp20LoadPdfJs();if(token!==tp20PdfToken)return;
+  const data=new Uint8Array(await file.arrayBuffer());pdf=await lib.getDocument({data}).promise;
+  if(pdf.numPages>40)throw Error('Se admiten hasta 40 hojas por importación (160 ejercicios). Divide el PDF en partes.');
+  if(pdf.numPages<1)throw Error('El PDF no contiene hojas.');
+  const trim=$('tp20PdfIgnoreBorders').checked;
+  for(let p=1;p<=pdf.numPages;p++){
+   if(token!==tp20PdfToken)return;
+   tp20PdfMessage('Analizando hoja '+p+' de '+pdf.numPages+'…');
+   const page=await pdf.getPage(p),basic=page.getViewport({scale:1});
+   const scale=Math.min(2.1,2600/Math.max(basic.width,basic.height));
+   const viewport=page.getViewport({scale});
+   const full=document.createElement('canvas');full.width=Math.ceil(viewport.width);full.height=Math.ceil(viewport.height);
+   const g=full.getContext('2d',{alpha:false});g.fillStyle='#fff';g.fillRect(0,0,full.width,full.height);
+   await page.render({canvasContext:g,viewport,background:'white'}).promise;
+   const text=await page.getTextContent();
+   for(let q=0;q<4;q++){
+    const crop=tp20PdfCropCanvas(full,q,trim),mask=tp20PdfTextMask(text,viewport,crop);
+    const hasText=(text.items||[]).some(t=>{const pt=lib.Util.transform(viewport.transform,t.transform);return !!t.str?.trim()&&pt[4]>=crop.x&&pt[4]<crop.x+crop.w&&pt[5]>=crop.y&&pt[5]<crop.y+crop.h});
+    const graphic=tp20PdfHasGraphic(crop,mask,hasText);
+    const src=crop.canvas.toDataURL('image/jpeg',.93),item={src,graphic,page:p,quadrant:q};
+    tp20PdfExercises.push(item);
+    const card=document.createElement('div');card.className='tp20-pdf-item';
+    const label=document.createElement('span');label.className='tp20-pdf-number';label.textContent='Hoja '+p+' · Ejercicio '+(q+1);
+    const im=document.createElement('img');im.src=src;im.alt='Vista previa del ejercicio '+(q+1)+' de la hoja '+p;
+    const choice=document.createElement('label');const check=document.createElement('input');check.type='checkbox';check.checked=graphic;check.onchange=()=>{item.graphic=check.checked};
+    choice.append(check,document.createTextNode('Contiene gráfico'));card.append(label,im,choice);tp20PdfPreview.append(card);
+   }
+   page.cleanup();await new Promise(resolve=>setTimeout(resolve,0));
+  }
+  tp20PdfMessage('Recortes listos. Revisa y corrige la casilla «Contiene gráfico» cuando sea necesario.');
+  $('tp20PdfCount').textContent=tp20PdfExercises.length+' páginas nuevas';
+  tp20PdfImport.disabled=false;
+ }catch(err){if(token===tp20PdfToken){tp20PdfMessage('No se pudo leer el PDF: '+(err?.message||err),true);tp20PdfImport.disabled=true;}}
+ finally{if(pdf)try{await pdf.destroy()}catch{}if(token===tp20PdfToken)tp20PdfLoading=false}
+}
+tp20PdfInput.addEventListener('change',e=>{const f=e.target.files?.[0];if(f)tp20PdfRead(f)});
+$('tp20PdfIgnoreBorders').onchange=()=>{tp20PdfMessage('Esta preferencia se aplicará al seleccionar el siguiente PDF.');};
+function tp20PdfDecodeImage(src){return new Promise((resolve,reject)=>{const im=new Image();im.onload=()=>resolve(im);im.onerror=()=>reject(Error('No se pudo convertir un recorte en imagen'));im.src=src})}
+tp20PdfImport.onclick=async()=>{
+ if(!tp20PdfExercises.length||tp20PdfLoading||tp20PdfBusy||exporting||pointer!==null)return;
+ tp20PdfBusy=true;tp20PdfImport.disabled=true;tp20PdfMessage('Preparando ejercicios para la pizarra…');
+ try{
+  // Decodificar todo antes de cambiar la pizarra evita una importación parcial.
+  const images=[];for(let i=0;i<tp20PdfExercises.length;i++){images.push(await tp20PdfDecodeImage(tp20PdfExercises[i].src));if(i%8===7)await new Promise(resolve=>setTimeout(resolve,0))}
+  if(!settleDrafts())throw Error('Termina el trazo actual antes de importar.');
+  saveCurrent();
+  const generated=images.map((image,i)=>{
+   const item=tp20PdfExercises[i],leftWidth=PAGE_W*.48,maxHeight=item.graphic?PAGE_H*.84:PAGE_H*.30;
+   const scale=Math.min(leftWidth/image.width,maxHeight/image.height),w=image.width*scale,h=image.height*scale;
+   return{scene:[{type:'image',image,x:55,y:48,w,h,baseW:w,baseH:h,locked:true,source:'pdf-4',sourcePage:item.page,sourceExercise:item.quadrant+1}],
+    history:[],theme:'light',grid:false,dots:false,spacing:40,thumb:null};
+  });
+  const first=pages.length;pages.push(...generated);tp20PdfBusy=false;tp20PdfClose();
+  goPage(first);
+  if(continuousMode)buildContinuous();
+  say('PDF importado: '+generated.length+' ejercicios, una página por ejercicio. Cada imagen está fijada con candado.');
+ }catch(err){tp20PdfBusy=false;tp20PdfMessage('No se pudo importar: '+(err?.message||err),true);tp20PdfImport.disabled=false}
+};
+
 function pdfFilename(name,date=new Date()){const base=(name||'').normalize('NFC').trim().replace(/\.pdf$/i,'').replace(/[<>:"/\\|?*\u0000-\u001f]/g,' ').replace(/\s+/g,'_').replace(/^[._ ]+|[._ ]+$/g,'').slice(0,100)||'TuProfe20_Blackboard';const parts=Object.fromEntries(new Intl.DateTimeFormat('en-GB',{timeZone:'America/Lima',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit',hourCycle:'h23'}).formatToParts(date).map(p=>[p.type,p.value]));return base+'_'+parts.year+'-'+parts.month+'-'+parts.day+'_'+parts.hour+'-'+parts.minute+'-'+parts.second+'.pdf'}
 function updateFilenamePreview(){$('filenamePreview').textContent=pdfFilename($('pdfName').value)}
 $('pdfName').oninput=updateFilenamePreview;
