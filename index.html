@@ -85,6 +85,8 @@ const palettes={dark:['#ffffff','#ff3d6b','#56cfff','#ff9f30','#26ffe1','#f4ff00
 const names={dark:['Blanco','Rojo fosforescente','Celeste fosforescente','Naranja fosforescente','Turquesa fosforescente','Amarillo fosforescente','Verde fosforescente','Lila fosforescente','Negro'],light:['Negro','Rojo intenso','Azul intenso','Naranja intenso','Turquesa intenso','Amarillo intenso','Verde intenso','Lila intenso','Blanco']};
 let theme='dark',tool='pencil',color=0,width=5,ruler=false,arrowStyle='single',highlighterAlpha=.3,scene=[],history=[],stroke=null,pen=null,pending=null,pointer=null,drag=null,hover=null,W=1,H=1,dpr=1,frame=0;
 let multi=[],marquee=null;
+document.addEventListener('tp20-arrow-style',e=>{if(['single','double','line'].includes(e.detail)){arrowStyle=e.detail;if(stroke?.type==='arrow'){stroke.arrowStyle=arrowStyle;render()}if(selected>=0&&scene[selected]?.type==='arrow'){checkpoint();scene[selected]={...scene[selected],arrowStyle};render()}}});
+document.addEventListener('tp20-highlighter-opacity',e=>{if(Number.isFinite(e.detail))highlighterAlpha=Math.max(.1,Math.min(.4,e.detail));if(stroke?.type==='highlighter'){stroke.highlighterAlpha=highlighterAlpha;render()}});
 let lastDuplicateOffset={dx:30,dy:30},lastDuplicateSource=null;
 let trajectory=null,trajectoryDraft=null,trajectoryAnimating=false,trajectoryFrame=0,trajectoryBase=null,trajectoryStartTime=0;
 function motionIds(){return trajectory?.ids?.filter(i=>scene[i])||[]}
