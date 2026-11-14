@@ -1414,38 +1414,84 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
 @media(max-width:760px){#leftRail .tool-grid{grid-template-columns:repeat(3,minmax(0,1fr))}#tp20ToolSubmenu{width:240px}}
 </style>
 
-<style id="tp20-metal-theme">
-/* Theme exclusively styles interface controls; original drawing color palettes remain vivid. */
-body{--line:#474951!important;--muted:#d0d2d8!important;--accent:#e3e5ec!important;color:#f5f6f8!important;background:#090a0c!important}
-#leftRail,#rightRail{background:linear-gradient(115deg,#55575c 0%,#2d2f34 3%,#1c1d21 26%,#101114 72%,#33353a 98%,#17181b)!important;border-color:#62656e!important;color:#fff!important;box-shadow:inset 1px 0 #ffffff20,inset -1px 0 #000b,0 0 20px #0008!important}
-#workspace{background:radial-gradient(ellipse at center,#292a2e,#141518 62%,#07080a 100%)!important}
-.brand,.brand h1,.brand h1 span,.brand small,.section-title,.right-title,#pageInfo{color:#f5f6fa!important;border-color:#53545c!important}
+<style id="tp20-modern-theme">
+/* TuProfe20 Studio 2026: minimal, vibrant, modern dark interface. */
+:root{--tp20-electric:#6578ff;--tp20-cyan:#43d4ff;--tp20-surface:#111627;--tp20-border:#313b57;--tp20-text:#f2f5ff}
+body{--line:#303a54!important;--muted:#aebbd5!important;--accent:#7286ff!important;background:#090d19!important;color:var(--tp20-text)!important;font-family:Inter,"Segoe UI",system-ui,sans-serif!important}
+#leftRail,#rightRail{background:linear-gradient(180deg,#141b30 0%,#0d1324 60%,#0b1020 100%)!important;border-color:#2b3550!important;color:#f2f5ff!important;box-shadow:none!important}
+#workspace{background:radial-gradient(ellipse at 50% 35%,#252f50 0%,#141d35 53%,#0a1021 100%)!important}
+.brand{background:linear-gradient(125deg,#1e2c4b,#111c34)!important;border:1px solid #364669!important;border-radius:13px!important;padding:9px!important}
+.brand h1{color:#f7f9ff!important;letter-spacing:-.035em!important}.brand h1 span{color:#8fbaff!important}.brand small{color:#99a9cc!important}
+.section-title,.right-title,#pageInfo{color:#b9c8e7!important;border-color:#2e3d60!important}
 #leftRail button:not(.swatch),#rightRail button,#viewTools button,#tp20ToolSubmenu button,#tp20QuickTools button:not([style*="background"]),#leftRail select,#rightRail select,#tp20ToolSubmenu select,#tp20QuickTools select,#leftRail .filebtn,#rightRail .filebtn{
-background:linear-gradient(157deg,#777981 0%,#4c4e55 8%,#303239 38%,#1b1c21 88%,#373940 100%)!important;
-border:1px solid #858892!important;border-bottom-color:#101115!important;border-radius:8px!important;color:#fafaff!important;
-text-shadow:0 1px 2px #0009!important;box-shadow:inset 0 1px 1px #ffffff3b,inset 0 -2px 1px #0007,0 2px 6px #0007!important;
-transition:filter .13s,border-color .13s,box-shadow .13s!important
-}
-#leftRail button:not(.swatch):hover,#rightRail button:hover,#viewTools button:hover,#tp20ToolSubmenu button:hover,#leftRail .filebtn:hover{filter:brightness(1.25)!important;border-color:#e7e9ee!important}
+background:linear-gradient(165deg,#232e49 0%,#18223a 100%)!important;
+border:1px solid #384866!important;border-radius:10px!important;color:#e9efff!important;
+text-shadow:none!important;box-shadow:0 2px 5px #05091936,inset 0 1px #ffffff0c!important;
+transition:background .16s,border-color .16s,transform .16s,box-shadow .16s!important}
+#leftRail button:not(.swatch):hover,#rightRail button:hover,#viewTools button:hover,#tp20ToolSubmenu button:hover,#leftRail .filebtn:hover{filter:none!important;transform:translateY(-1px);border-color:#8195fa!important;background:linear-gradient(150deg,#32446d,#202e50)!important;box-shadow:0 6px 16px #050b244d!important}
 #leftRail button.active:not(.swatch),#rightRail button.active,#viewTools button.active,#tp20QuickTools button.active{
-background:linear-gradient(145deg,#979aa2,#575a62 20%,#34363d 70%,#222329)!important;border-color:#f1f2f6!important;color:#fff!important;
-box-shadow:inset 0 1px 1px #ffffffa0,inset 0 -2px 2px #0009,0 0 0 1px #aeb2bc55,0 2px 8px #0009!important
-}
-#leftRail button:disabled,#rightRail button:disabled,#viewTools button:disabled{opacity:.4!important}
-#tp20ToolSubmenu,#tp20QuickTools{background:linear-gradient(145deg,#5b5d63,#24252a 12%,#101115 95%)!important;border-color:#989ba5!important;color:#f9f9fc!important;box-shadow:inset 0 1px #ffffff44,0 15px 38px #000c!important}
-.tp20-subtitle,.tp20-subtrigger,#tp20ExtraDock summary,.tp20-insert-dock summary,.tp20-open-page{color:#fff!important}
-.tp20-subtrigger{background:linear-gradient(145deg,#858790,#292b31)!important;border:1px solid #b3b6c1!important;border-radius:4px!important;box-shadow:inset 0 1px #ffffff6b,0 1px 3px #0008!important}
-#tp20ExtraDock,.tp20-insert-dock,#settings,#motionPanel,#context,.object-colors-panel{background:linear-gradient(140deg,#383a40,#191a1e)!important;border-color:#62656e!important;color:#fff!important}
-#tp20QuickAccess{background:linear-gradient(140deg,#858790,#292b31)!important;border-color:#a8abb5!important;color:#fff!important}
-#leftRail #palette .swatch{width:18px!important;height:18px!important;border:1px solid #b8bdc6!important;border-radius:3px!important;padding:0!important;box-shadow:0 1px 3px #000a!important}
-#leftRail #palette .swatch.active{outline:2px solid #fff!important;outline-offset:2px!important}
-#tp20QuickTools .tp20-grid button{border-radius:3px!important}
-#rightRail #pages button,#continuousPages .page-card{background:linear-gradient(145deg,#393b41,#1a1b1f)!important;border-color:#757880!important}
-#rightRail #pages button.active,#continuousPages .page-card.active{border-color:#e8eaf0!important}
-#continuousPages .page-card:hover{border-color:#fff!important;box-shadow:0 0 0 2px #e8ebf455,0 8px 28px #0008!important}
-#continuousPages .continuous-note,#zoomHint{color:#f2f2f5!important}
-#tp20AutoSaveStatus{color:#fff!important;background:#2d2f35!important;border-color:#787b85!important}
-#leftRail input,#rightRail input{accent-color:#ced2dc!important}
-#leftRail button:focus-visible,#rightRail button:focus-visible,#viewTools button:focus-visible{outline:2px solid #fff!important;outline-offset:2px!important}
+background:linear-gradient(125deg,#5267ed,#344ab8)!important;border-color:#a1b3ff!important;color:#fff!important;box-shadow:0 3px 16px #5369f166,inset 0 1px #ffffff36!important}
+#leftRail button:disabled,#rightRail button:disabled,#viewTools button:disabled{opacity:.45!important}
+#tp20ToolSubmenu,#tp20QuickTools{background:linear-gradient(145deg,#1a2744,#11192f)!important;border:1px solid #52628d!important;color:#f2f6ff!important;box-shadow:0 20px 60px #030715b8!important;border-radius:15px!important}
+.tp20-subtitle{color:#b7c7ff!important;font-size:13px!important}
+.tp20-subtrigger{background:#30436f!important;border:1px solid #637baa!important;border-radius:7px!important;color:#fff!important;box-shadow:none!important}
+.tp20-subtrigger:hover,.tp20-subtrigger[aria-expanded=true]{background:#596ff5!important}
+#tp20ExtraDock,.tp20-insert-dock,#settings,#motionPanel,#context,.object-colors-panel{background:#151f36!important;border-color:#344361!important;color:#eff3ff!important;border-radius:12px!important}
+#tp20ExtraDock summary,.tp20-insert-dock summary,.tp20-open-page{color:#b5c5ff!important}
+#tp20QuickAccess{background:linear-gradient(125deg,#273a67,#172544)!important;border-color:#4d6aa4!important;color:#fff!important}
+#leftRail #palette .swatch{border:2px solid #8190ae!important;border-radius:50%!important;padding:0!important;box-shadow:0 2px 6px #0005!important}
+#leftRail #palette .swatch.active{outline:2px solid #8ca8ff!important;outline-offset:2px!important}
+#rightRail #pages button,#continuousPages .page-card{background:#19233b!important;border-color:#344568!important;border-radius:11px!important}
+#rightRail #pages button.active,#continuousPages .page-card.active{border-color:#8fa7ff!important;box-shadow:0 0 0 1px #7188ff55!important}
+#continuousPages .page-card:hover{border-color:#93aaff!important;box-shadow:0 7px 25px #060e2599!important}
+#continuousPages .continuous-note,#zoomHint{color:#bac9e7!important}
+#tp20AutoSaveStatus{color:#a8edcf!important;background:#162e34!important;border-color:#306960!important}
+#leftRail input,#rightRail input{accent-color:#7088ff!important}
+#leftRail button:focus-visible,#rightRail button:focus-visible,#viewTools button:focus-visible{outline:2px solid #91a9ff!important;outline-offset:2px!important}
+#leftRail .tool-grid button{border-radius:11px!important;min-height:54px!important;font-size:10px!important}
+#leftRail .tool-grid button b{font-size:21px!important}
+#tp20ToolSubmenu .tp20-subrow{font-size:12px!important}
+#tp20PenDash,#mainPenDash{font-size:12px!important;min-height:34px!important}
+#tp20ToolSubmenu #penOptions{display:block!important}
+#tp20ToolSubmenu #penOptions label{display:flex!important;flex-direction:column!important;gap:7px!important}
+#tp20ToolSubmenu #penOptions select{width:100%!important;background:#1f3155!important}
+#tp20ToolSubmenu .tp20-style-choices{display:grid;grid-template-columns:1fr;gap:8px;margin:10px 0}
+#tp20ToolSubmenu .tp20-style-choice{display:flex!important;align-items:center;gap:11px;padding:11px 12px!important;min-height:44px!important;text-align:left;background:#1c2a49!important;border:1px solid #40547a!important;border-radius:10px!important;color:#eaf0ff!important;cursor:pointer}
+#tp20ToolSubmenu .tp20-style-choice[aria-pressed=true]{background:linear-gradient(120deg,#435bcc,#29418a)!important;border-color:#9aafff!important;box-shadow:0 0 0 1px #697fff55!important}
+.tp20-style-choice .sample{width:72px;flex:none;font-weight:900;letter-spacing:1px;font-size:17px;color:#bfd0ff}
+.tp20-style-choice .name{font-weight:650;font-size:12px}
+@media(max-width:760px){#leftRail,#rightRail{box-shadow:none!important}}
 </style>
+<script id="tp20-pen-modern-controls">
+(()=>{'use strict';
+function init(){
+ const trigger=document.querySelector('[data-tool="pen"] .tp20-subtrigger');
+ const pop=document.getElementById('tp20ToolSubmenu');
+ const main=document.getElementById('mainPenDash');
+ const floating=document.getElementById('tp20PenDash');
+ if(!trigger||!pop||!main)return;
+ const labels={solid:'Continua',dotted:'Punteada',dashdot:'Raya-punto'};
+ function sync(value){for(const s of [main,floating])if(s)s.value=value;for(const b of pop.querySelectorAll('.tp20-style-choice'))b.setAttribute('aria-pressed',String(b.dataset.dash===value))}
+ function apply(value){if(!labels[value])return;document.dispatchEvent(new CustomEvent('tp20-pen-dash',{detail:value}));sync(value)}
+ apply('solid');
+ function build(){
+  if(pop.hidden||!pop.contains(main)||pop.querySelector('.tp20-style-choices'))return;
+  const section=document.createElement('div');section.className='tp20-style-choices';section.setAttribute('role','group');section.setAttribute('aria-label','Estilos de trazo de pluma');
+  const samples={solid:'━━━━',dotted:'● ● ● ●',dashdot:'━━ · ━━'};
+  for(const key of ['solid','dotted','dashdot']){
+   const b=document.createElement('button');b.type='button';b.className='tp20-style-choice';b.dataset.dash=key;b.innerHTML='<span class="sample"></span><span class="name"></span>';b.querySelector('.sample').textContent=samples[key];b.querySelector('.name').textContent=labels[key];b.onclick=()=>apply(key);section.append(b);
+  }
+  const panel=main.closest('label')||main;
+  panel.insertAdjacentElement('afterend',section);sync(main.value);
+ }
+ trigger.addEventListener('click',()=>requestAnimationFrame(build));
+ trigger.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' ')requestAnimationFrame(build)});
+ document.querySelectorAll('.tp20-pen-dash-selector').forEach(s=>s.addEventListener('change',()=>sync(s.value)));
+ document.addEventListener('tp20-pen-dash',e=>sync(e.detail));
+ const penButton=document.querySelector('[data-tool="pen"]');
+ if(penButton)penButton.addEventListener('click',()=>{ /* tool button selects pen; default remains continuous until user selects another style */ });
+}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
+})();
+</script>
 </body></html>
