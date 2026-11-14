@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Profe Premium Access · TuProfe20 Lab</title>
+<style>
+:root{font-family:Inter,"Segoe UI",system-ui,sans-serif;color-scheme:dark;color:#f1f5ff;background:#080d1b}
+*{box-sizing:border-box}body{min-height:100vh;margin:0;display:grid;place-items:center;background:radial-gradient(ellipse at 20% 10%,#253c80 0%,#0d1630 42%,#080d1b 78%);padding:24px}
+main{width:min(100%,420px);padding:34px;border-radius:26px;border:1px solid #3b4f7a;background:linear-gradient(145deg,#192744ee,#10192fee);box-shadow:0 20px 75px #0008}
+.logo{font-size:13px;letter-spacing:.18em;font-weight:800;color:#9eb7ff}.mark{display:inline-grid;place-items:center;width:40px;height:40px;background:linear-gradient(135deg,#748fff,#4a52cd);border-radius:13px;margin-bottom:22px;font-size:24px}
+h1{font-size:29px;letter-spacing:-.05em;margin:10px 0}p{color:#a7b5d1;font-size:13px;line-height:1.65;margin:0 0 22px}
+label{display:block;color:#ced8ed;font-size:12px;font-weight:700;margin:18px 0 8px}
+input{width:100%;padding:14px 15px;border-radius:12px;border:1px solid #3b4c70;background:#0c1429;color:#fff;font:inherit;outline:none}
+input:focus{border-color:#95acff;box-shadow:0 0 0 3px #607dff44}
+button{width:100%;cursor:pointer;border:0;border-radius:12px;padding:14px 16px;background:linear-gradient(125deg,#677ef7,#4358c4);color:white;font-size:14px;font-weight:750;margin-top:25px}
+button:disabled{opacity:.5;cursor:wait}
+small{display:block;text-align:center;margin-top:18px;font-size:11px;color:#8c9cbc}
+#error{margin-top:15px;color:#ffadba;font-size:12px;min-height:18px}
+.info{background:#27395d;border:1px solid #42608b;padding:12px;border-radius:11px;font-size:12px;color:#d2e2ff;line-height:1.5}
+[hidden]{display:none!important}
+</style></head>
+<body><main><div class="mark" aria-hidden="true">✦</div><div class="logo">TUPROFE20 LAB</div>
+<h1>Profe Premium Access</h1><p>Acceso exclusivo a tu entorno de enseñanza digital. Inicia sesión con una cuenta autorizada.</p>
+<div class="info" id="configNotice">Versión preparada para pruebas. El administrador debe configurar Firebase Authentication antes de habilitar inicios de sesión.</div>
+<form id="loginForm" autocomplete="on">
+<label for="email">Correo de administrador</label><input id="email" type="email" placeholder="correo@ejemplo.com" autocomplete="username" required>
+<label for="password">Contraseña</label><input id="password" type="password" placeholder="Tu contraseña" autocomplete="current-password" required minlength="6">
+<button id="submit" type="submit" disabled>Iniciar sesión →</button><div id="error" role="alert" aria-live="polite"></div></form>
+<section id="signedIn" hidden><p>Cuenta autorizada. Este acceso es una prueba de autenticación.</p><button id="logout">Cerrar sesión</button></section>
+<small>Acceso individual · Profe Premium 2026</small></main>
+<script type="module">
+/*
+ CONFIGURACIÓN PENDIENTE:
+ 1. Crear proyecto Firebase y activar proveedor Email/Password.
+ 2. Crear usuario administrador desde la consola de Firebase.
+ 3. Sustituir config con la configuración pública de la aplicación Firebase.
+ 4. Restringir dominios autorizados.
+ IMPORTANTE: Esta página es exclusivamente una prueba de inicio de sesión.
+ No protege index.html ni impide visitar el GitHub Pages público directamente.
+ Para licencias reales, mover el contenido de la pizarra a alojamiento protegido
+ y validar sesión/autorización EN EL SERVIDOR antes de servir los archivos.
+*/
+const firebaseConfig=null;
+const ADMIN_EMAIL="tuprofe20.agenda@gmail.com";
+const btn=document.getElementById('submit');
+const error=document.getElementById('error');
+const form=document.getElementById('loginForm');
+const notice=document.getElementById('configNotice');
+if(firebaseConfig&&firebaseConfig.apiKey&&firebaseConfig.projectId){
+ try{
+ const [{initializeApp},{getAuth,signInWithEmailAndPassword,onAuthStateChanged,signOut}]
+ =await Promise.all([import('https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js'),
+ import('https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js')]);
+ const auth=getAuth(initializeApp(firebaseConfig));btn.disabled=false;notice.hidden=true;
+ const logout=document.getElementById('logout');
+ onAuthStateChanged(auth,async user=>{
+  const authorized=user&&user.email?.toLowerCase()===ADMIN_EMAIL&&user.emailVerified;
+  if(user&&!authorized){await signOut(auth);error.textContent='Acceso no autorizado. Verifica el correo y la autorización de tu cuenta.'}
+  form.hidden=!!authorized;document.getElementById('signedIn').hidden=!authorized;
+ });
+ form.addEventListener('submit',async e=>{e.preventDefault();btn.disabled=true;error.textContent='';try{
+  const email=document.getElementById('email').value.trim().toLowerCase();
+  if(email!==ADMIN_EMAIL)throw new Error('Acceso restringido al administrador.');
+  const result=await signInWithEmailAndPassword(auth,email,document.getElementById('password').value);
+  document.getElementById('password').value='';
+  if(!result.user.emailVerified){await signOut(auth);throw new Error('Verifica primero el correo electrónico.')}
+ }catch(err){error.textContent=err.code==='auth/invalid-credential'?'Correo o contraseña incorrectos.':err.message}finally{btn.disabled=false}});
+ logout.onclick=()=>signOut(auth);
+ }catch(err){error.textContent='No se pudo inicializar Firebase: '+err.message}
+}
+</script></body></html>
