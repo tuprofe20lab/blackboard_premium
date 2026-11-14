@@ -94,10 +94,10 @@ body .brand h1{font-size:21px}body .brand h1 span{font-size:11px;letter-spacing:
 <dialog id="solidsDialog"><h2>Biblioteca de sólidos geométricos · TuProfe20</h2><p class="subtle">Inserta sólidos 3D esquemáticos y editables. El tamaño de la página permanece fijo. Selecciona el sólido para girarlo o modificar ancho y alto por separado.</p><div class="solid-options"><label>Figura <select id="solidKind"><option value="prism">Prisma</option><option value="pyramid">Pirámide</option><option value="sphere">Esfera</option><option value="cylinder">Cilindro</option><option value="cone">Cono</option></select></label><label>Polígono de la base <select id="solidSides"><option value="3">Triángulo</option><option value="4" selected>Cuadrado</option><option value="5">Pentágono</option><option value="6">Hexágono</option><option value="7">Heptágono</option><option value="8">Octágono</option><option value="10">Decágono</option><option value="12">Dodecágono</option></select></label><label>Altura visual <input id="solidHeight" type="range" min="30" max="100" value="70"></label><label>Giro de la base <input id="solidRotation" type="range" min="0" max="360" value="25"></label></div><div class="dialog-actions"><button id="cancelSolid">Cancelar</button><button id="insertSolid">Insertar sólido</button></div></dialog><dialog id="formula"><h2>Insertar fórmula</h2><textarea id="latex" rows="3">\frac{a^2+b^2}{c}=\sqrt{x}</textarea><div id="preview"></div><p class="subtle">Fórmula como imagen vectorial: podrás moverla y cambiar su tamaño.</p><div class="row"><button id="cancelMath">Cancelar</button><button id="insertMath">Colocar fórmula</button></div></dialog>
 <dialog id="tp20PdfDialog" class="tp20-pdf-dialog" aria-label="Importador de cuatro ejercicios por página">
 <div class="tp20-pdf-head"><strong>Importar PDF · 4 ejercicios por hoja</strong><button type="button" id="tp20PdfClose" aria-label="Cerrar">✕</button></div>
-<p class="tp20-pdf-help">Cada hoja debe tener 4 cajas en una cuadrícula 2 × 2. Revisa los recortes y señala los ejercicios con gráfico. Cada ejercicio se colocará en una página independiente, con candado.</p>
+<p class="tp20-pdf-help">Formato obligatorio: cuatro cajas completas por hoja, distribuidas 2 × 2 y sin encabezados fuera de la cuadrícula. Cada caja, incluido su gráfico, se insertará íntegra a la izquierda de una página nueva y quedará fijada con candado.</p>
 <div id="tp20PdfStatus" role="status">Selecciona un PDF.</div>
 <div class="tp20-pdf-scroller" id="tp20PdfPreview"></div>
-<div class="tp20-pdf-footer"><label><input type="checkbox" id="tp20PdfIgnoreBorders" checked> Recortar márgenes de las cajas</label><span id="tp20PdfCount"></span><button type="button" id="tp20PdfCancel">Cancelar</button><button type="button" id="tp20PdfImport" disabled>Crear páginas</button></div>
+<div class="tp20-pdf-footer"><span>Recorte estándar: 4 cajas completas (2 × 2)</span><span id="tp20PdfCount"></span><button type="button" id="tp20PdfCancel">Cancelar</button><button type="button" id="tp20PdfImport" disabled>Crear páginas</button></div>
 </dialog>
 <script>
 'use strict';
@@ -492,35 +492,15 @@ async function tp20LoadPdfJs(){
  }).catch(e=>{window.tp20PdfScriptLoading=null;throw e})}
  const lib=await window.tp20PdfScriptLoading;lib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';return lib;
 }
-function tp20PdfCropCanvas(full,q,trim){
- const sw=full.width/2,sh=full.height/2,col=q%2,row=Math.floor(q/2);
- const mx=trim?Math.round(sw*.027):0,my=trim?Math.round(sh*.025):0;
- const x=Math.floor(col*sw+mx),y=Math.floor(row*sh+my),w=Math.max(10,Math.floor(sw-2*mx)),h=Math.max(10,Math.floor(sh-2*my));
- const c=document.createElement('canvas');c.width=w;c.height=h;c.getContext('2d').drawImage(full,x,y,w,h,0,0,w,h);
+function tp20PdfCropCanvas(full,q){
+ // Dividir exactamente en 2 columnas y 2 filas: preservar toda la caja, sin recortar bordes ni gráficos.
+ const col=q%2,row=Math.floor(q/2);
+ const x=Math.round(col*full.width/2),y=Math.round(row*full.height/2);
+ const x2=Math.round((col+1)*full.width/2),y2=Math.round((row+1)*full.height/2);
+ const w=x2-x,h=y2-y;
+ const c=document.createElement('canvas');c.width=w;c.height=h;
+ c.getContext('2d').drawImage(full,x,y,w,h,0,0,w,h);
  return{canvas:c,x,y,w,h};
-}
-function tp20PdfTextMask(pageText,viewport,crop){
- const c=document.createElement('canvas');c.width=crop.w;c.height=crop.h;
- const g=c.getContext('2d');g.fillStyle='#fff';g.fillRect(0,0,c.width,c.height);g.fillStyle='#000';
- for(const t of pageText.items||[]){
-  if(!t.str?.trim())continue;
-  const p=window.pdfjsLib.Util.transform(viewport.transform,t.transform),height=Math.max(7,Math.abs(p[3])||Math.hypot(p[2],p[3])),width=Math.max(3,(t.width||5)*viewport.scale);
-  g.fillRect(p[4]-crop.x-6,p[5]-crop.y-height*1.3-5,width+12,height*1.8+10);
- }
- return c;
-}
-function tp20PdfHasGraphic(crop,textMask,hasText){
- if(!hasText)return true; // escaneos: no se puede distinguir texto de dibujo, conservar bloque amplio
- const a=crop.canvas.getContext('2d',{willReadFrequently:true}).getImageData(0,0,crop.w,crop.h).data;
- const b=textMask.getContext('2d',{willReadFrequently:true}).getImageData(0,0,crop.w,crop.h).data;
- let nonText=0,count=0;
- const step=Math.max(2,Math.round(crop.w/410));
- for(let y=Math.round(crop.h*.12);y<crop.h*.93;y+=step)for(let x=Math.round(crop.w*.08);x<crop.w*.94;x+=step){
-  const i=(y*crop.w+x)*4;if(b[i]<100)continue;
-  if(a[i]<165&&a[i+1]<165&&a[i+2]<165)nonText++;
-  count++;
- }
- return count>0&&nonText/count>.008;
 }
 async function tp20PdfRead(file){
  if(!file)return;if(!/\.pdf$/i.test(file.name)&&file.type!=='application/pdf'){tp20PdfMessage('Selecciona un archivo PDF válido.',true);return}
@@ -532,7 +512,6 @@ async function tp20PdfRead(file){
   const data=new Uint8Array(await file.arrayBuffer());pdf=await lib.getDocument({data}).promise;
   if(pdf.numPages>40)throw Error('Se admiten hasta 40 hojas por importación (160 ejercicios). Divide el PDF en partes.');
   if(pdf.numPages<1)throw Error('El PDF no contiene hojas.');
-  const trim=$('tp20PdfIgnoreBorders').checked;
   for(let p=1;p<=pdf.numPages;p++){
    if(token!==tp20PdfToken)return;
    tp20PdfMessage('Analizando hoja '+p+' de '+pdf.numPages+'…');
@@ -542,29 +521,24 @@ async function tp20PdfRead(file){
    const full=document.createElement('canvas');full.width=Math.ceil(viewport.width);full.height=Math.ceil(viewport.height);
    const g=full.getContext('2d',{alpha:false});g.fillStyle='#fff';g.fillRect(0,0,full.width,full.height);
    await page.render({canvasContext:g,viewport,background:'white'}).promise;
-   const text=await page.getTextContent();
    for(let q=0;q<4;q++){
-    const crop=tp20PdfCropCanvas(full,q,trim),mask=tp20PdfTextMask(text,viewport,crop);
-    const hasText=(text.items||[]).some(t=>{const pt=lib.Util.transform(viewport.transform,t.transform);return !!t.str?.trim()&&pt[4]>=crop.x&&pt[4]<crop.x+crop.w&&pt[5]>=crop.y&&pt[5]<crop.y+crop.h});
-    const graphic=tp20PdfHasGraphic(crop,mask,hasText);
-    const src=crop.canvas.toDataURL('image/jpeg',.93),item={src,graphic,page:p,quadrant:q};
+    const crop=tp20PdfCropCanvas(full,q);
+    const src=crop.canvas.toDataURL('image/png'),item={src,page:p,quadrant:q};
     tp20PdfExercises.push(item);
     const card=document.createElement('div');card.className='tp20-pdf-item';
     const label=document.createElement('span');label.className='tp20-pdf-number';label.textContent='Hoja '+p+' · Ejercicio '+(q+1);
     const im=document.createElement('img');im.src=src;im.alt='Vista previa del ejercicio '+(q+1)+' de la hoja '+p;
-    const choice=document.createElement('label');const check=document.createElement('input');check.type='checkbox';check.checked=graphic;check.onchange=()=>{item.graphic=check.checked};
-    choice.append(check,document.createTextNode('Contiene gráfico'));card.append(label,im,choice);tp20PdfPreview.append(card);
+    card.append(label,im);tp20PdfPreview.append(card);
    }
    page.cleanup();await new Promise(resolve=>setTimeout(resolve,0));
   }
-  tp20PdfMessage('Recortes listos. Revisa y corrige la casilla «Contiene gráfico» cuando sea necesario.');
+  tp20PdfMessage('Las cuatro cajas completas de cada hoja están listas. Verifica las vistas previas antes de crear las páginas.');
   $('tp20PdfCount').textContent=tp20PdfExercises.length+' páginas nuevas';
   tp20PdfImport.disabled=false;
  }catch(err){if(token===tp20PdfToken){tp20PdfMessage('No se pudo leer el PDF: '+(err?.message||err),true);tp20PdfImport.disabled=true;}}
  finally{if(pdf)try{await pdf.destroy()}catch{}if(token===tp20PdfToken)tp20PdfLoading=false}
 }
 tp20PdfInput.addEventListener('change',e=>{const f=e.target.files?.[0];if(f)tp20PdfRead(f)});
-$('tp20PdfIgnoreBorders').onchange=()=>{tp20PdfMessage('Esta preferencia se aplicará al seleccionar el siguiente PDF.');};
 function tp20PdfDecodeImage(src){return new Promise((resolve,reject)=>{const im=new Image();im.onload=()=>resolve(im);im.onerror=()=>reject(Error('No se pudo convertir un recorte en imagen'));im.src=src})}
 tp20PdfImport.onclick=async()=>{
  if(!tp20PdfExercises.length||tp20PdfLoading||tp20PdfBusy||exporting||pointer!==null)return;
@@ -575,7 +549,7 @@ tp20PdfImport.onclick=async()=>{
   if(!settleDrafts())throw Error('Termina el trazo actual antes de importar.');
   saveCurrent();
   const generated=images.map((image,i)=>{
-   const item=tp20PdfExercises[i],leftWidth=PAGE_W*.48,maxHeight=item.graphic?PAGE_H*.84:PAGE_H*.30;
+   const item=tp20PdfExercises[i],leftWidth=PAGE_W*.48,maxHeight=PAGE_H*.89;
    const scale=Math.min(leftWidth/image.width,maxHeight/image.height),w=image.width*scale,h=image.height*scale;
    return{scene:[{type:'image',image,x:55,y:48,w,h,baseW:w,baseH:h,locked:true,source:'pdf-4',sourcePage:item.page,sourceExercise:item.quadrant+1}],
     history:[],theme:'light',grid:false,dots:false,spacing:40,thumb:null};
@@ -583,7 +557,7 @@ tp20PdfImport.onclick=async()=>{
   const first=pages.length;pages.push(...generated);tp20PdfBusy=false;tp20PdfClose();
   goPage(first);
   if(continuousMode)buildContinuous();
-  say('PDF importado: '+generated.length+' ejercicios, una página por ejercicio. Cada imagen está fijada con candado.');
+  say('PDF importado: '+generated.length+' cajas completas, una por página, alineadas a la izquierda y fijadas con candado.');
  }catch(err){tp20PdfBusy=false;tp20PdfMessage('No se pudo importar: '+(err?.message||err),true);tp20PdfImport.disabled=false}
 };
 
