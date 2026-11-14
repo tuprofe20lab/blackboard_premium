@@ -94,7 +94,7 @@ body .brand h1{font-size:21px}body .brand h1 span{font-size:11px;letter-spacing:
 <dialog id="solidsDialog"><h2>Biblioteca de sólidos geométricos · TuProfe20</h2><p class="subtle">Inserta sólidos 3D esquemáticos y editables. El tamaño de la página permanece fijo. Selecciona el sólido para girarlo o modificar ancho y alto por separado.</p><div class="solid-options"><label>Figura <select id="solidKind"><option value="prism">Prisma</option><option value="pyramid">Pirámide</option><option value="sphere">Esfera</option><option value="cylinder">Cilindro</option><option value="cone">Cono</option></select></label><label>Polígono de la base <select id="solidSides"><option value="3">Triángulo</option><option value="4" selected>Cuadrado</option><option value="5">Pentágono</option><option value="6">Hexágono</option><option value="7">Heptágono</option><option value="8">Octágono</option><option value="10">Decágono</option><option value="12">Dodecágono</option></select></label><label>Altura visual <input id="solidHeight" type="range" min="30" max="100" value="70"></label><label>Giro de la base <input id="solidRotation" type="range" min="0" max="360" value="25"></label></div><div class="dialog-actions"><button id="cancelSolid">Cancelar</button><button id="insertSolid">Insertar sólido</button></div></dialog><dialog id="formula"><h2>Insertar fórmula</h2><textarea id="latex" rows="3">\frac{a^2+b^2}{c}=\sqrt{x}</textarea><div id="preview"></div><p class="subtle">Fórmula como imagen vectorial: podrás moverla y cambiar su tamaño.</p><div class="row"><button id="cancelMath">Cancelar</button><button id="insertMath">Colocar fórmula</button></div></dialog>
 <dialog id="tp20PdfDialog" class="tp20-pdf-dialog" aria-label="Importador de cuatro ejercicios por página">
 <div class="tp20-pdf-head"><strong>Importar PDF · 4 ejercicios por hoja</strong><button type="button" id="tp20PdfClose" aria-label="Cerrar">✕</button></div>
-<p class="tp20-pdf-help">Detecta los bordes de las cuatro cajas reales por hoja, aunque haya portada o encabezados. Extrae cada caja con 0,5 cm de margen y la coloca íntegra a la izquierda, fijada con candado. Si una hoja no tiene cuatro cajas reconocibles, se omite.</p>
+<p class="tp20-pdf-help">Detecta los bordes de las cuatro cajas reales por hoja, aunque haya portada o encabezados. Extrae cada caja con 2 mm de margen y la coloca íntegra a la izquierda, fijada con candado. Si una hoja no tiene cuatro cajas reconocibles, se omite.</p>
 <div id="tp20PdfStatus" role="status">Selecciona un PDF.</div>
 <div class="tp20-pdf-scroller" id="tp20PdfPreview"></div>
 <div class="tp20-pdf-footer"><span>Recorte estándar: 4 cajas completas (2 × 2)</span><span id="tp20PdfCount"></span><button type="button" id="tp20PdfCancel">Cancelar</button><button type="button" id="tp20PdfImport" disabled>Crear páginas</button></div>
@@ -615,8 +615,8 @@ async function tp20PdfRead(file){
    await page.render({canvasContext:g,viewport,background:'white'}).promise;
    const boxes=tp20PdfDetectBoxes(full);
    if(boxes.length!==4){skipped.push(p);page.cleanup();continue}
-   // 0.5 cm en unidades de PDF (72 pt por pulgada), escaladas al lienzo.
-   const marginPx=Math.max(1,Math.round(0.5/2.54*72*scale));
+   // 2 mm en unidades de PDF (72 pt por pulgada), escaladas al lienzo.
+   const marginPx=Math.max(1,Math.round(0.2/2.54*72*scale));
    for(let q=0;q<4;q++){
     const crop=tp20PdfCropCanvas(full,boxes[q],marginPx);
     const src=crop.canvas.toDataURL('image/png'),item={src,page:p,quadrant:q};
@@ -631,7 +631,7 @@ async function tp20PdfRead(file){
   if(!tp20PdfExercises.length)throw Error('No se encontraron cuatro cajas cerradas con bordes visibles en ninguna hoja. Comprueba que el PDF tenga los recuadros dibujados.');
   if(skipped.length){
    tp20PdfMessage('Detectadas '+tp20PdfExercises.length+' cajas. Hojas omitidas por no mostrar 4 cajas reconocibles: '+skipped.join(', ')+'. Revisa las vistas previas.',false);
-  }else tp20PdfMessage('Detectadas las cajas reales (más 0.5 cm de margen). Revisa las vistas previas antes de crear páginas.');
+  }else tp20PdfMessage('Detectadas las cajas reales (más 2 mm de margen). Revisa las vistas previas antes de crear páginas.');
   $('tp20PdfCount').textContent=tp20PdfExercises.length+' páginas nuevas';
   tp20PdfImport.disabled=false;
  }catch(err){if(token===tp20PdfToken){tp20PdfMessage('No se pudo preparar el PDF: '+(err?.message||err),true);tp20PdfImport.disabled=true;}}
@@ -857,15 +857,75 @@ async function decodeObject(o){const v={...o};if(o.type==='image')v.image=await 
 
 // Autoguardado local editable (.tp20), sin subir imágenes ni documentos a un servidor.
 const tp20StoreName='TuProfe20_Autosave_v1',tp20StoreKey='current';
-let tp20Ready=false,tp20Saving=false,tp20LastSignature='',tp20RestorePending=false;
+let tp20Ready=false,tp20Saving=false,tp20LastSignature='',tp20RestorePending=false,tp20SaveQueued=false,tp20InitialRestoreFailed=false;
 function tp20Status(t){autoSaveBadge.textContent=t}
 function tp20Database(){return new Promise((resolve,reject)=>{if(!window.indexedDB){reject(Error('IndexedDB no disponible'));return}const req=indexedDB.open(tp20StoreName,1);req.onupgradeneeded=()=>{if(!req.result.objectStoreNames.contains('projects'))req.result.createObjectStore('projects')};req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error||Error('No se pudo abrir el almacenamiento'))})}
 async function tp20Read(){const db=await tp20Database();try{return await new Promise((resolve,reject)=>{const tx=db.transaction('projects','readonly'),q=tx.objectStore('projects').get(tp20StoreKey);q.onsuccess=()=>resolve(q.result||null);q.onerror=()=>reject(q.error)})}finally{db.close()}}
 async function tp20Write(value){const db=await tp20Database();try{await new Promise((resolve,reject)=>{const tx=db.transaction('projects','readwrite');tx.objectStore('projects').put(value,tp20StoreKey);tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error||Error('Falló el guardado'));tx.onabort=()=>reject(tx.error||Error('Guardado cancelado'))})}finally{db.close()}}
 function tp20Signature(){return JSON.stringify({pageIndex,pages:pages.map((p,i)=>({theme:i===pageIndex?theme:p.theme,grid:i===pageIndex?$('grid').checked:p.grid,dots:i===pageIndex?$('dots').checked:p.dots,spacing:i===pageIndex?+$('spacing').value:p.spacing,scene:(i===pageIndex?scene:p.scene).map(o=>{const v={...o};delete v.image;return v})}))})}
-async function tp20Autosave(force=false){if(!tp20Ready||tp20Saving||pointer!==null||exporting||tp20RestorePending)return;const signature=tp20Signature();if(!force&&signature===tp20LastSignature)return;tp20Saving=true;tp20Status('Autoguardado: guardando…');try{const project=encodeProject();await tp20Write({project,savedAt:new Date().toISOString()});tp20LastSignature=signature;tp20Status('✓ Guardado local · '+new Date().toLocaleTimeString('es-PE',{hour:'2-digit',minute:'2-digit'}))}catch(e){console.warn('Autoguardado TuProfe20:',e);tp20Status('⚠ No se pudo guardar · descarga .tp20')}finally{tp20Saving=false}}
-async function tp20Restore(){tp20RestorePending=true;try{const stored=await tp20Read();if(stored?.project?.format==='TuProfe20LabProject'&&stored.project.pages?.length){const restored=[];for(const p of stored.project.pages){if(!Array.isArray(p.scene)||p.scene.length>10000||stored.project.pages.length>300)throw Error('Respaldo inválido');restored.push({scene:await Promise.all(p.scene.map(decodeObject)),history:[],theme:p.theme==='light'?'light':'dark',grid:!!p.grid,dots:!!p.dots,spacing:Number(p.spacing)||40,thumb:null})}pages=restored;pageIndex=Math.max(0,Math.min(restored.length-1,Number(stored.project.pageIndex)||0));const pg=pages[pageIndex];scene=pg.scene;history=pg.history;theme=pg.theme;$('grid').checked=pg.grid;$('dots').checked=pg.dots;$('spacing').value=pg.spacing;selected=-1;multi=[];setTool('pencil');for(const mode of ['dark','light'])$(mode).classList.toggle('active',mode===theme);palette();context();refreshPages();fitView();render();tp20Status('✓ Proyecto recuperado automáticamente');say('Proyecto recuperado desde el guardado automático local · '+pages.length+' página(s).')}else tp20Status('Autoguardado activo · cada 8 s')}catch(e){console.warn('Recuperación de proyecto:',e);tp20Status('⚠ Almacenamiento local no disponible')}finally{tp20RestorePending=false;tp20Ready=true;tp20LastSignature=tp20Signature()}}
-setInterval(()=>{void tp20Autosave()},8000);
+async function tp20Autosave(force=false){
+ if(!tp20Ready||pointer!==null||exporting||tp20RestorePending||tp20InitialRestoreFailed)return;
+ if(tp20Saving){tp20SaveQueued=true;return}
+ const signature=tp20Signature();
+ if(!force&&signature===tp20LastSignature)return;
+ tp20Saving=true;tp20Status('Autoguardado: guardando…');
+ try{
+  const project=encodeProject();
+  await tp20Write({project,savedAt:new Date().toISOString()});
+  tp20LastSignature=signature;
+  tp20Status('✓ Guardado permanente local · '+new Date().toLocaleTimeString('es-PE',{hour:'2-digit',minute:'2-digit'}));
+ }catch(e){console.warn('Autoguardado TuProfe20:',e);tp20Status('⚠ Error de guardado: descarga un respaldo .tp20')}
+ finally{
+  tp20Saving=false;
+  if(tp20SaveQueued){tp20SaveQueued=false;void tp20Autosave()}
+ }
+}
+async function tp20Restore(){
+ tp20RestorePending=true;
+ try{
+  const stored=await tp20Read();
+  if(stored?.project?.format==='TuProfe20LabProject'&&stored.project.pages?.length){
+   if(stored.project.pages.length>300)throw Error('Respaldo inválido');
+   const restored=[];
+   for(const p of stored.project.pages){
+    if(!Array.isArray(p.scene)||p.scene.length>10000)throw Error('Página inválida');
+    restored.push({scene:await Promise.all(p.scene.map(decodeObject)),history:[],theme:p.theme==='light'?'light':'dark',grid:!!p.grid,dots:!!p.dots,spacing:Number(p.spacing)||40,thumb:null});
+   }
+   pages=restored;
+   pageIndex=Math.max(0,Math.min(restored.length-1,Number(stored.project.pageIndex)||0));
+   const pg=pages[pageIndex];scene=pg.scene;history=pg.history;theme=pg.theme;
+   $('grid').checked=pg.grid;$('dots').checked=pg.dots;$('spacing').value=pg.spacing;
+   selected=-1;multi=[];setTool('pencil');
+   for(const mode of ['dark','light'])$(mode).classList.toggle('active',mode===theme);
+   palette();context();refreshPages();fitView();render();
+   tp20Status('✓ Proyecto anterior recuperado · '+(stored.savedAt?new Date(stored.savedAt).toLocaleString('es-PE'):'guardado local'));
+   say('Proyecto recuperado desde el guardado persistente · '+pages.length+' página(s).');
+  }else if(stored){
+   throw Error('Existe un proyecto guardado que no se pudo interpretar');
+  }else tp20Status('Autoguardado activo · cada 3 s · protege el almacenamiento');
+ }catch(e){
+  // Nunca sobrescribir un proyecto potencialmente recuperable con una pizarra nueva vacía.
+  tp20InitialRestoreFailed=true;
+  console.warn('Recuperación de proyecto:',e);
+  tp20Status('⚠ Recuperación fallida. No se sobrescribirá el proyecto local.');
+  say('No se pudo recuperar el proyecto local. Revisa el navegador o abre tu respaldo .tp20.');
+ }finally{
+  tp20RestorePending=false;tp20Ready=true;tp20LastSignature=tp20Signature();
+ }
+}
+const tp20ProtectBtn=document.createElement('button');
+tp20ProtectBtn.type='button';tp20ProtectBtn.id='tp20ProtectStorage';tp20ProtectBtn.textContent='♢ Proteger almacenamiento';
+tp20ProtectBtn.title='Solicitar al navegador que conserve los proyectos locales incluso al cerrar';
+autoSaveBadge.insertAdjacentElement('afterend',tp20ProtectBtn);
+tp20ProtectBtn.addEventListener('click',async()=>{
+ try{
+  if(!navigator.storage?.persist)throw Error('Tu navegador no permite solicitar almacenamiento persistente.');
+  const granted=await navigator.storage.persist();
+  if(granted){tp20Status('✓ Almacenamiento persistente autorizado.');await tp20Autosave(true)}
+  else tp20Status('El navegador no concedió persistencia. Guarda también un archivo .tp20.');
+ }catch(e){tp20Status('⚠ '+(e?.message||'No se pudo proteger el almacenamiento'))}
+});
+setInterval(()=>{void tp20Autosave()},3000);
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')void tp20Autosave(true)});
 window.addEventListener('pagehide',()=>{void tp20Autosave(true)});
 void tp20Restore();
