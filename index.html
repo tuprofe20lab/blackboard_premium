@@ -209,10 +209,10 @@ function drawStroke(g,s,mode=theme){if(s.type==='precision'){drawPrecisionObject
  if(['rect','ellipse','polygon','pen'].includes(s.type)){const p=shapePath(s);if(isFillable(s)&&s.fill){g.save();g.globalAlpha=s.fillOpacity??.25;g.fillStyle=s.customFillColor||palettes[mode][s.fillColor??s.color];g.fill(p);g.restore()}g.stroke(p)}
  else{if(s.type==='arrow'){const a=s.points[0],b=s.points.at(-1);if(a&&b){const theta=Math.atan2(b.y-a.y,b.x-a.x),size=Math.max(13,Math.min(24,s.width*2.9)),wing=.24;g.lineWidth=Math.max(1.4,Math.min(s.width,4));g.beginPath();g.moveTo(a.x,a.y);g.lineTo(b.x,b.y);g.stroke();const head=(x,y,angle)=>{g.beginPath();g.moveTo(x,y);g.lineTo(x-size*Math.cos(angle-wing),y-size*Math.sin(angle-wing));g.moveTo(x,y);g.lineTo(x-size*Math.cos(angle+wing),y-size*Math.sin(angle+wing));g.stroke()};if(s.arrowStyle!=='line')head(b.x,b.y,theta);if(s.arrowStyle==='double')head(a.x,a.y,theta+Math.PI)}g.restore();return}if(s.type==='eraser'){g.globalCompositeOperation='destination-out';g.lineWidth=s.width*5}else if(s.type==='highlighter'){g.globalAlpha=s.highlighterAlpha??.3;g.lineWidth=s.width*4}if(s.type==='pencil'){pencilPath(g,s)}else if(s.points.length===1){g.beginPath();g.arc(s.points[0].x,s.points[0].y,g.lineWidth/2,0,Math.PI*2);g.fill()}else g.stroke(curvePath(s.points))}g.restore()}
 function pageState(){return {scene,history,theme,grid:$('grid').checked,dots:$('dots').checked,spacing:+$('spacing').value}}
-function rotateContext(g,s){if(!s.angle)return;const b=bounds(s),cx=b.x+b.w/2,cy=b.y+b.h/2;g.translate(cx,cy);g.rotate(s.angle*Math.PI/180);g.translate(-cx,-cy)}
+function rotateContext(g,s){if(!s.angle&&!s.mirrorX)return;const b=bounds(s),cx=b.x+b.w/2,cy=b.y+b.h/2;g.translate(cx,cy);g.rotate((s.angle||0)*Math.PI/180);if(s.mirrorX)g.scale(-1,1);g.translate(-cx,-cy)}
 function drawItem(g,s,mode){g.save();rotateContext(g,s);drawStroke(g,s,mode);g.restore()}
 function rotatePoint(p,b,degrees){const a=degrees*Math.PI/180,c=Math.cos(a),sn=Math.sin(a),cx=b.x+b.w/2,cy=b.y+b.h/2,dx=p.x-cx,dy=p.y-cy;return{x:cx+dx*c-dy*sn,y:cy+dx*sn+dy*c}}
-function localPoint(p,s){return s.angle?rotatePoint(p,bounds(s),-s.angle):p}
+function localPoint(p,s){const q=s.angle?rotatePoint(p,bounds(s),-s.angle):p;if(!s.mirrorX)return q;const b=bounds(s);return{x:2*(b.x+b.w/2)-q.x,y:q.y}}
 function paintBase(g,p){
  const mode=p.theme;g.fillStyle=mode==='dark'?'#101318':'#ffffff';g.fillRect(0,0,PAGE_W,PAGE_H);
  const gap=p.spacing||40;g.strokeStyle=mode==='dark'?'#ffffff20':'#1e65a62b';g.fillStyle=mode==='dark'?'#b4cbea80':'#2665a67d';g.lineWidth=1;
@@ -230,7 +230,7 @@ function render(overlays=true){ctx.setTransform(1,0,0,1,0,0);ctx.clearRect(0,0,b
  const state=pageState();state.scene=[...scene,...(stroke?[stroke]:[]),...(pen?[pen]:[])];worldTransform(ctx);ctx.save();ctx.beginPath();ctx.rect(0,0,PAGE_W,PAGE_H);ctx.clip();paintBase(ctx,state);ctx.restore();worldTransform(ictx);ictx.save();ictx.beginPath();ictx.rect(0,0,PAGE_W,PAGE_H);ictx.clip();for(const item of state.scene)if(!['image','formula'].includes(item.type))drawItem(ictx,item,state.theme);ictx.restore();ctx.setTransform(1,0,0,1,0,0);ctx.drawImage(ink,0,0);worldTransform(ctx);
  if(!overlays)return;
   drawMotionOverlay();
- if(nodeSnapEnabled)drawVertices();drawGuides();
+ if(nodeSnapEnabled)drawVertices();drawGuides();drawGeoTransformGuides();
  if(pen){ctx.save();ctx.strokeStyle='#29bdb0';ctx.fillStyle='#ffffff';ctx.lineWidth=1;for(const n of pen.nodes){if(n.hx||n.hy){ctx.beginPath();ctx.moveTo(n.x-n.hx,n.y-n.hy);ctx.lineTo(n.x+n.hx,n.y+n.hy);ctx.stroke();for(const v of [-1,1]){ctx.beginPath();ctx.arc(n.x+v*n.hx,n.y+v*n.hy,3,0,Math.PI*2);ctx.fill()}}ctx.fillRect(n.x-3,n.y-3,6,6);ctx.strokeRect(n.x-3,n.y-3,6,6)}if(hover&&pointer===null&&pen.nodes.length){ctx.setLineDash([4,4]);const n=pen.nodes.at(-1);ctx.beginPath();ctx.moveTo(n.x,n.y);const target=magnetHover?pen.nodes[0]:(shiftDown?snap(n,hover):hover);ctx.lineTo(target.x,target.y);ctx.stroke()}if(magnetHover){const first=pen.nodes[0],u=screenUnit();ctx.setLineDash([]);ctx.strokeStyle='#6affe0';ctx.fillStyle='#1ea78c44';ctx.lineWidth=2*u;ctx.beginPath();ctx.arc(first.x,first.y,14*u,0,Math.PI*2);ctx.fill();ctx.stroke();ctx.fillStyle=theme==='dark'?'#afffeb':'#006b58';ctx.font=(12*u)+'px system-ui';ctx.fillText('Cerrar figura',first.x+20*u,first.y-10*u)}ctx.restore()}
  if(tp20Crop)tp20CropDraw();else if(selected>=0&&scene[selected]){drawSelection(selectionBounds());drawImageLockControl();}
  if(marquee){const a=marquee.start,b=marquee.end;ctx.save();ctx.fillStyle='#35d9bd22';ctx.strokeStyle='#35d9bd';ctx.lineWidth=screenUnit();ctx.fillRect(a.x,a.y,b.x-a.x,b.y-a.y);ctx.strokeRect(a.x,a.y,b.x-a.x,b.y-a.y);ctx.restore()}
@@ -264,6 +264,7 @@ function drawSelection(o){const u=screenUnit();ctx.save();ctx.strokeStyle='#35d9
 
 
 let tp20Crop=null,tp20CropDrag=null;
+let tp20GeoPick=null,tp20GeoGuide=null;
 function selectedCropImage(){
  return selectionIds().length===1&&scene[selected]?.type==='image'?scene[selected]:null;
 }
@@ -442,7 +443,7 @@ function context(){const el=$('context');el.replaceChildren();el.classList.toggl
    }
    el.append(colorPanel);
  }
- button('Girar −15°',()=>rotateSelection(-15));button('Girar +15°',()=>rotateSelection(15));button('Reflejar horizontal',()=>reflectSelection());button('Agrupar · Ctrl G',()=>groupSelected());if(selectionIds().some(i=>scene[i].groupId))button('Desagrupar',()=>groupSelected(true));button('Duplicar',duplicateSelected);if(selectionIds().length===1&&o.type==='formula')button('✎ Editar LaTeX',()=>editExistingFormula(selected));button('Eliminar',deleteSelected);button('Listo',()=>setTool('pencil'))}else if(pen){button('Terminar ↵',()=>finishPen(false));button('Cerrar trazado',()=>finishPen(true));button('Cancelar',()=>{pen=null;context();render()})}updateUndo();syncStyleControls()}
+ button('Girar −15°',()=>rotateSelection(-15));button('Girar +15°',()=>rotateSelection(15));button('Reflejar horizontal',()=>reflectSelection('horizontal'));button('Reflejar vertical',()=>reflectSelection('vertical'));button('Transformar: eje / punto…',openGeoTransform);button('Agrupar · Ctrl G',()=>groupSelected());if(selectionIds().some(i=>scene[i].groupId))button('Desagrupar',()=>groupSelected(true));button('Duplicar',duplicateSelected);if(selectionIds().length===1&&o.type==='formula')button('✎ Editar LaTeX',()=>editExistingFormula(selected));button('Eliminar',deleteSelected);button('Listo',()=>setTool('pencil'))}else if(pen){button('Terminar ↵',()=>finishPen(false));button('Cerrar trazado',()=>finishPen(true));button('Cancelar',()=>{pen=null;context();render()})}updateUndo();syncStyleControls()}
 function finishPen(closed=false){let added=-1;if(pen&&pen.nodes.length>1){checkpoint();scene.push({...pen,closed,baseW:bounds(pen).w,fill:fillEnabled,fillColor,fillOpacity});added=scene.length-1;say('Trazado colocado. Puedes comenzar otra línea.')}pen=null;hover=null;magnetHover=false;if(closed&&added>=0){tool='select';selected=added;document.querySelectorAll('[data-tool]').forEach(b=>b.classList.toggle('active',b.dataset.tool==='select'));cursorForView();say('Figura cerrada y seleccionada. Activa «Rellenar figura», elige el color y ajusta la opacidad.')}context();render()}
 function setTool(t){if(tp20Crop&&pointer===null)tp20CropCancel();if(t==='pen'){paintTarget='stroke';palette()}if(t!=='trajectory'&&tool==='trajectory'){$('motionPath').classList.remove('active')}handMode=false;if(pen)finishPen();if(pending)placeImage();selected=-1;multi=[];context();tool=t;cursorForView();document.querySelectorAll('[data-tool]').forEach(b=>b.classList.toggle('active',b.dataset.tool===t));say(t==='select'?'Selecciona y arrastra para mover. Shift + clic añade objetos; arrastra desde un espacio vacío para seleccionarlos con un marco. Ctrl G agrupa; Ctrl Shift G desagrupa. Los tiradores permiten ancho y alto independientes. Shift mantiene la proporción. El círculo superior gira. Alt arrastra una copia.':t==='arrow'?'Arrastra para crear una flecha. Shift ajusta a incrementos de 45°. Selecciona para girar o cambiar su longitud y orientación.':t==='polygon'?'Polígono regular: elige los lados y arrastra desde el centro. Shift ajusta el giro.':(t==='rect'||t==='ellipse')?'Arrastra para crear la figura. Mantén Shift para un cuadrado o una circunferencia. Luego puedes moverla con Seleccionar.':t==='pen'?'Pluma: clic para rectas; arrastra para curvas. Acerca el punto final al primero para cerrar con el imán.':t==='highlighter'?'Resaltador al 30% de opacidad. Puedes combinarlo con la escuadra.':'Lápiz de punta elíptica al 50%, inclinación −15°. Shift activa la escuadra.');render();}
 for(const b of document.querySelectorAll('[data-tool]'))b.onclick=()=>{try{setTool(b.dataset.tool)}catch(err){console.error('Cambio de herramienta:',err);tool=b.dataset.tool;document.querySelectorAll('[data-tool]').forEach(x=>x.classList.toggle('active',x===b));cursorForView();render()}};
@@ -773,8 +774,107 @@ $('motionDuration').oninput=()=>{$('motionSeconds').textContent=Number($('motion
 $('motionPlay').onclick=motionGo;$('motionReset').onclick=motionReset;
 
 // ===== Premium extensions: transformations, precision, animation and project files =====
-function rotateSelection(degrees){const ids=selectionIds();if(!ids.length)return;checkpoint();for(const i of ids){const o=scene[i];if(o.type==='image'&&o.locked)continue;scene[i]={...o,angle:((o.angle||0)+degrees+360)%360}}context();render();queueThumbnail()}
-function reflectSelection(){const ids=selectionIds(),b=selectionBounds(ids);if(!b)return;checkpoint();for(const i of ids){const o=scene[i],ob=bounds(o);if(o.type==='image'&&o.locked)continue;if(o.points){const flip=p=>({...p,x:2*(b.x+b.w/2)-p.x});scene[i]={...o,points:o.points.map(flip),rawPoints:o.rawPoints?.map(flip)}}else if(o.nodes){scene[i]={...o,nodes:o.nodes.map(n=>({...n,x:2*(b.x+b.w/2)-n.x,hx:-n.hx}))}}else scene[i]={...o,x:2*(b.x+b.w/2)-ob.x-ob.w,angle:-(o.angle||0)}}context();render();queueThumbnail()}
+
+function geoAngle(deg){return ((deg%360)+360)%360}
+function geoTransformPoint(p,mode,origin,axis,angle){
+ if(mode==='rotate'){const a=angle*Math.PI/180,c=Math.cos(a),sn=Math.sin(a),dx=p.x-origin.x,dy=p.y-origin.y;return{x:origin.x+c*dx-sn*dy,y:origin.y+sn*dx+c*dy}}
+ const ax=axis.b.x-axis.a.x,ay=axis.b.y-axis.a.y,den=ax*ax+ay*ay;
+ if(den<1e-8)return{x:p.x,y:p.y};
+ const t=((p.x-axis.a.x)*ax+(p.y-axis.a.y)*ay)/den;
+ return{x:2*(axis.a.x+t*ax)-p.x,y:2*(axis.a.y+t*ay)-p.y};
+}
+function geoTransformObject(o,mode,origin,axis,angle){
+ const fn=p=>geoTransformPoint(p,mode,origin,axis,angle);
+ if(o.points||o.nodes){
+  const b=bounds(o),centre={x:b.x+b.w/2,y:b.y+b.h/2},r=(o.angle||0)*Math.PI/180,c=Math.cos(r),sn=Math.sin(r);
+  const world=p=>{const dx=p.x-centre.x,dy=p.y-centre.y;return{x:centre.x+c*(o.mirrorX?-dx:dx)-sn*dy,y:centre.y+sn*(o.mirrorX?-dx:dx)+c*dy}};
+  if(o.points)return{...o,angle:0,mirrorX:false,points:o.points.map(p=>({...p,...fn(world(p))})),rawPoints:o.rawPoints?.map(p=>({...p,...fn(world(p))}))};
+  const nodes=o.nodes.map(n=>{
+   const p=fn(world(n)),handle=fn(world({x:n.x+n.hx,y:n.y+n.hy}));
+   return{...n,x:p.x,y:p.y,hx:handle.x-p.x,hy:handle.y-p.y}
+  });
+  return{...o,angle:0,mirrorX:false,nodes};
+ }
+ const b=bounds(o),cx=b.x+b.w/2,cy=b.y+b.h/2,next=fn({x:cx,y:cy});
+ const previous=o.angle||0;
+ let nextAngle,mirror=!!o.mirrorX;
+ if(mode==='rotate')nextAngle=previous+angle;
+ else{const phi=Math.atan2(axis.b.y-axis.a.y,axis.b.x-axis.a.x)*180/Math.PI;nextAngle=2*phi-previous+180;mirror=!mirror}
+ return{...o,x:b.x+next.x-cx,y:b.y+next.y-cy,angle:geoAngle(nextAngle),mirrorX:mirror};
+}
+function geoApply(mode,origin,axis,angle=0,copy=true){
+ if(pointer!==null){say('Termina primero el trazo en curso.');return false}
+ const ids=selectionIds().filter(i=>scene[i]&&scene[i].type!=='eraser'&&!(scene[i].type==='image'&&scene[i].locked));
+ if(!ids.length){say('Selecciona una figura desbloqueada para transformar.');return false}
+ if(mode!=='rotate'&&Math.hypot(axis.b.x-axis.a.x,axis.b.y-axis.a.y)<1){say('La recta de reflexión necesita dos puntos distintos.');return false}
+ checkpoint();
+ const groupMap=new Map(),newIds=[];
+ for(const i of ids){
+  const o=scene[i],next=geoTransformObject(o,mode,origin,axis,angle);
+  if(copy){
+   if(o.groupId&&!groupMap.has(o.groupId))groupMap.set(o.groupId,'geo-'+Date.now().toString(36)+'-'+i);
+   next.groupId=o.groupId?groupMap.get(o.groupId):null;
+   if(next.type==='image')next.locked=false;
+   newIds.push(scene.push(next)-1);
+  }else scene[i]=next;
+ }
+ selectIds(copy?newIds:ids);context();render();queueThumbnail();
+ say((mode==='rotate'?'Rotación':'Reflexión')+' aplicada a '+ids.length+' objeto(s). '+(copy?'Original conservado.':'Original transformado.'));
+ return true;
+}
+function reflectSelection(direction='horizontal'){
+ const ids=selectionIds().filter(i=>scene[i]&&!(scene[i].type==='image'&&scene[i].locked));
+ const b=selectionBounds(ids);if(!b)return;
+ const x=b.x+b.w/2,y=b.y+b.h/2;
+ const axis=direction==='vertical'?{a:{x,y:y-100},b:{x,y:y+100}}:{a:{x:x-100,y},b:{x:x+100,y}};
+ geoApply('reflect',{x,y},axis,0,false);
+}
+function rotateSelection(degrees){
+ const ids=selectionIds().filter(i=>scene[i]&&!(scene[i].type==='image'&&scene[i].locked));
+ const b=selectionBounds(ids);if(!b)return;
+ const origin={x:b.x+b.w/2,y:b.y+b.h/2};
+ geoApply('rotate',origin,null,degrees,false);
+}
+function drawGeoTransformGuides(){
+ const g=tp20GeoGuide;if(!g)return;
+ const dot=(p,label)=>{ctx.beginPath();ctx.arc(p.x,p.y,7*screenUnit(),0,Math.PI*2);ctx.fill();ctx.stroke();ctx.fillText(label,p.x+12*screenUnit(),p.y-11*screenUnit())};
+ ctx.save();ctx.strokeStyle='#ffb347';ctx.fillStyle='#ffb347';ctx.lineWidth=2*screenUnit();ctx.font=(15*screenUnit())+'px system-ui';
+ if(g.mode==='rotate')dot(g.origin,'Centro de rotación');
+ else {const a=g.axis.a,b=g.axis.b,dx=b.x-a.x,dy=b.y-a.y,d=Math.hypot(dx,dy);if(d>1){const ux=dx/d,uy=dy/d,L=3200;ctx.setLineDash([9*screenUnit(),6*screenUnit()]);ctx.beginPath();ctx.moveTo(a.x-ux*L,a.y-uy*L);ctx.lineTo(a.x+ux*L,a.y+uy*L);ctx.stroke();ctx.setLineDash([]);dot(a,'A');dot(b,'B')}}
+ ctx.restore();
+}
+function openGeoTransform(){
+ const currentIds=selectionIds().filter(i=>scene[i]&&!(scene[i].type==='image'&&scene[i].locked));
+ const boundsSel=selectionBounds(currentIds);
+ if(!boundsSel){say('Selecciona primero una o varias figuras desbloqueadas.');return}
+ document.getElementById('tp20GeoDialog')?.remove();tp20GeoPick=null;
+ const cx=boundsSel.x+boundsSel.w/2,cy=boundsSel.y+boundsSel.h/2;
+ const dlg=document.createElement('dialog');dlg.id='tp20GeoDialog';
+ dlg.style.cssText='position:fixed;top:70px;right:24px;left:auto;margin:0;max-width:min(390px,calc(100vw - 30px));width:340px;max-height:85vh;overflow:auto;padding:18px;background:#17212f;color:#fff;border:1px solid #668399;border-radius:14px;box-shadow:0 18px 60px #0009;z-index:100000;font:14px system-ui';
+ dlg.innerHTML='<div style="display:flex;justify-content:space-between;align-items:center"><strong style="font-size:16px">Transformaciones geométricas</strong><button type="button" data-geo="close" aria-label="Cerrar">✕</button></div><label style="display:block;margin-top:12px">Operación<select data-geo="mode" style="width:100%;margin-top:5px"><option value="rotate">Rotar respecto de un punto</option><option value="horizontal">Reflejar horizontalmente</option><option value="vertical">Reflejar verticalmente</option><option value="line">Reflejar respecto de una recta</option></select></label><div data-geo="angleWrap" style="margin-top:10px">Ángulo (grados, positivo antihorario en sentido matemático)<input type="number" data-geo="angle" value="45" step="15" style="width:100%;box-sizing:border-box"></div><div data-geo="centerWrap" style="margin-top:12px"><strong>Centro de rotación</strong><div style="display:flex;gap:7px;margin-top:7px"><label>X<input data-geo="cx" type="number" step="any" style="width:100%"></label><label>Y<input data-geo="cy" type="number" step="any" style="width:100%"></label></div><button type="button" data-geo="pickCenter" style="margin-top:8px">⊕ Marcar punto en la pizarra</button></div><div data-geo="lineWrap" style="display:none;margin-top:12px"><strong>Recta de reflexión A–B</strong><div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:7px"><label>Ax<input data-geo="ax" type="number" step="any" style="width:100%"></label><label>Ay<input data-geo="ay" type="number" step="any" style="width:100%"></label><label>Bx<input data-geo="bx" type="number" step="any" style="width:100%"></label><label>By<input data-geo="by" type="number" step="any" style="width:100%"></label></div><button type="button" data-geo="pickLine" style="margin-top:8px">／ Marcar 2 puntos en la pizarra</button></div><label style="display:flex;gap:8px;align-items:center;margin-top:15px"><input data-geo="copy" type="checkbox" checked> Crear copia y conservar la figura original</label><div style="display:flex;gap:8px;margin-top:15px"><button type="button" data-geo="apply" style="flex:1;background:#29a6a0;color:#fff;padding:9px;border:0;border-radius:8px">Aplicar transformación</button><button type="button" data-geo="close">Cancelar</button></div><small data-geo="status" style="display:block;opacity:.85;margin-top:9px">Selecciona la operación y define su eje o centro.</small>';
+ document.body.append(dlg);dlg.show();
+ const get=k=>dlg.querySelector('[data-geo="'+k+'"]'),num=k=>Number(get(k).value);
+ const fields={cx,cy,ax:cx-100,ay:cy,bx:cx+100,by:cy};
+ for(const [key,value] of Object.entries(fields))get(key).value=Math.round(value*100)/100;
+ const current=()=>{const mode=get('mode').value,origin={x:num('cx'),y:num('cy')},axis=mode==='horizontal'?{a:{x:cx-100,y:cy},b:{x:cx+100,y:cy}}:mode==='vertical'?{a:{x:cx,y:cy-100},b:{x:cx,y:cy+100}}:{a:{x:num('ax'),y:num('ay')},b:{x:num('bx'),y:num('by')}};return{mode:mode==='rotate'?'rotate':'reflect',origin,axis}};
+ const refresh=()=>{const m=get('mode').value;get('angleWrap').style.display=get('centerWrap').style.display=m==='rotate'?'block':'none';get('lineWrap').style.display=m==='line'?'block':'none';tp20GeoGuide=current();render()};
+ const close=()=>{tp20GeoPick=null;tp20GeoGuide=null;dlg.close();dlg.remove();render()};
+ dlg.querySelectorAll('[data-geo="close"]').forEach(el=>el.onclick=close);
+ dlg.addEventListener('close',close,{once:true});
+ get('mode').onchange=refresh;
+ for(const key of ['cx','cy','ax','ay','bx','by'])get(key).addEventListener('input',refresh);
+ const picker=(keys)=>{tp20GeoPick={keys,index:0,accept:p=>{const k=keys[tp20GeoPick.index++];get(k+'x').value=Math.round(p.x*100)/100;get(k+'y').value=Math.round(p.y*100)/100;refresh();if(tp20GeoPick.index>=keys.length){tp20GeoPick=null;get('status').textContent='Puntos marcados. Puedes aplicar la transformación.'}else get('status').textContent='Marca el punto B sobre la pizarra.'}};get('status').textContent=keys.length===1?'Haz clic en el centro de rotación sobre la pizarra.':'Haz clic en el punto A y después en el punto B de la recta.'};
+ get('pickCenter').onclick=()=>picker(['c']);get('pickLine').onclick=()=>picker(['a','b']);
+ get('apply').onclick=()=>{const d=current(),angle=num('angle');if(!Number.isFinite(angle)||![d.origin.x,d.origin.y,d.axis.a.x,d.axis.a.y,d.axis.b.x,d.axis.b.y].every(Number.isFinite)){get('status').textContent='Introduce coordenadas y ángulo válidos.';return}if(geoApply(d.mode,d.origin,d.axis,angle,get('copy').checked))close()};
+ refresh();
+}
+board.addEventListener('pointerdown',e=>{
+ if(!tp20GeoPick)return;
+ e.preventDefault();e.stopImmediatePropagation();
+ const p=point(e);
+ if(p.x>=0&&p.x<=PAGE_W&&p.y>=0&&p.y<=PAGE_H)tp20GeoPick.accept(p);
+},true);
+
 $('motionKind').onchange=()=>{if(trajectory){trajectory.kind=$('motionKind').value;render()}if(trajectoryDraft){trajectoryDraft.kind=$('motionKind').value;render()}};
 $('motionBend').oninput=()=>{$('motionBendOut').textContent=$('motionBend').value+'%';if(trajectory)trajectory.bend=+$('motionBend').value;if(trajectoryDraft)trajectoryDraft.bend=+$('motionBend').value;render()};
 // Keep curve settings while dragging the start/end points (original pointer handlers retained).
