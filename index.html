@@ -722,9 +722,9 @@ async function tp20PdfRead(file){
  try{
   const lib=await tp20LoadPdfJs();if(token!==tp20PdfToken)return;
   pdf=await lib.getDocument({data:new Uint8Array(await file.arrayBuffer())}).promise;
-  if(pdf.numPages>5)throw Error('Máximo 5 hojas de PDF por importación (4 ejercicios por hoja = 20 páginas de pizarra). Divide el PDF en partes.');
   if(pdf.numPages<1)throw Error('El PDF está vacío.');
-  for(let p=1;p<=pdf.numPages;p++){
+  // Puede incluir portada y hojas adicionales: detenerse al detectar 20 ejercicios.
+  for(let p=1;p<=pdf.numPages&&tp20PdfExercises.length<20;p++){
    if(token!==tp20PdfToken)return;
    tp20PdfMessage('Detectando cajas en hoja '+p+' de '+pdf.numPages+'…');
    const page=await pdf.getPage(p),basic=page.getViewport({scale:1});
@@ -750,10 +750,11 @@ async function tp20PdfRead(file){
    page.cleanup();await new Promise(resolve=>setTimeout(resolve,0));
   }
   if(!tp20PdfExercises.length)throw Error('No se encontraron cuatro cajas cerradas con bordes visibles en ninguna hoja. Comprueba que el PDF tenga los recuadros dibujados.');
-  if(tp20PdfExercises.length>20)throw Error('La importación permite como máximo 20 ejercicios.');
-  if(skipped.length){
-   tp20PdfMessage('Detectadas '+tp20PdfExercises.length+' cajas. Hojas omitidas por no mostrar 4 cajas reconocibles: '+skipped.join(', ')+'. Revisa las vistas previas.',false);
-  }else tp20PdfMessage('Detectadas las cajas reales (más 5 mm de margen). Revisa las vistas previas antes de crear páginas.');
+  const limitReached=tp20PdfExercises.length===20;
+  const omitted=skipped.length?' Se omitieron hojas sin cuatro ejercicios reconocibles (por ejemplo, la portada): '+skipped.join(', ')+'.':'';
+  tp20PdfMessage(
+   (limitReached?'Seleccionados los primeros 20 ejercicios; las páginas posteriores no se procesaron.':'Detectados '+tp20PdfExercises.length+' ejercicios.')+
+   omitted+' Revisa las vistas previas antes de crear páginas.',false);
   $('tp20PdfCount').textContent=tp20PdfExercises.length+' páginas nuevas';
   tp20PdfImport.disabled=false;
  }catch(err){if(token===tp20PdfToken){tp20PdfMessage('No se pudo preparar el PDF: '+(err?.message||err),true);tp20PdfImport.disabled=true;}}
